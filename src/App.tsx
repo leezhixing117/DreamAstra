@@ -17,7 +17,7 @@ import { Sparkles, ShieldAlert, BookOpen } from 'lucide-react';
 export default function App() {
   // Load or initialize state from localStorage
   const [currentView, setCurrentView] = useState<'home' | 'app' | 'admin'>('home');
-  const [activeSection, setActiveSection] = useState<'workspace' | 'history' | 'patterns'>('workspace');
+  const [activeSection, setActiveSection] = useState<'workspace' | 'dna' | 'constellation' | 'mystery' | 'history' | 'patterns'>('workspace');
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [prefilledDream, setPrefilledDream] = useState('');
 
@@ -93,13 +93,13 @@ export default function App() {
   }, [history]);
 
   // Navigate handler
-  const handleNavigate = (view: 'home' | 'app' | 'admin', section?: 'workspace' | 'history' | 'patterns') => {
+  const handleNavigate = (view: 'home' | 'app' | 'admin', section?: 'workspace' | 'dna' | 'constellation' | 'mystery' | 'history' | 'patterns') => {
     setCurrentView(view);
     if (section) {
       setActiveSection(section);
       setTimeout(() => {
         if (section === 'history') {
-          document.getElementById('history')?.scrollIntoView({ behavior: 'smooth' });
+          document.getElementById('history-section')?.scrollIntoView({ behavior: 'smooth' });
         } else if (section === 'patterns') {
           document.getElementById('patterns')?.scrollIntoView({ behavior: 'smooth' });
         } else {
@@ -113,6 +113,7 @@ export default function App() {
 
   const handleStartWithDream = (dreamText: string) => {
     setPrefilledDream(dreamText);
+    setActiveSection('workspace');
     setCurrentView('app');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -153,7 +154,10 @@ export default function App() {
       {currentView === 'home' && (
         <HomeView
           onStartWithDream={handleStartWithDream}
-          onGoToApp={() => setCurrentView('app')}
+          onGoToApp={(tab) => {
+            if (tab) setActiveSection(tab);
+            setCurrentView('app');
+          }}
           onGoToAdmin={() => setCurrentView('admin')}
         />
       )}
@@ -173,13 +177,13 @@ export default function App() {
                 <div>
                   <span className="badge">
                     <Sparkles className="w-3 h-3 text-[#78e1b5]" />
-                    PRIVATE DREAM SPACE
+                    PRIVATE DREAM SPACE · 專屬夢境宇宙
                   </span>
                   <h1 style={{ marginTop: 8 }}>
                     你好，{currentUser?.display_name || currentUser?.email?.split('@')[0] || 'Dreamer'}。
                   </h1>
                   <p className="muted text-sm">
-                    今日記得咩夢？每次報告會自動保存到你的專屬日記，累積後可一鍵進行跨夢境串連分析。
+                    每一個夢，都是潛意識留給你的信。我們記得你的夢，為你持續累積 Dream DNA™️ 與星圖連線。
                   </p>
                 </div>
 
@@ -195,10 +199,12 @@ export default function App() {
               </div>
 
               <DreamWorkspace
+                key={activeSection}
                 initialHistory={history}
                 settings={settings}
                 demo={!process.env.GEMINI_API_KEY}
                 prefilledDream={prefilledDream}
+                initialTab={activeSection === 'patterns' ? 'history' : activeSection}
                 onDreamAdded={handleDreamAdded}
               />
             </div>

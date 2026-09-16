@@ -1,197 +1,205 @@
 import React, { useState } from 'react';
-import { Sparkles, BookOpen, Search, Brain, Shield, User, Sliders, ArrowRight } from 'lucide-react';
+import { Sparkles, Dna, Compass, Key, Mic, Heart, ArrowRight } from 'lucide-react';
+import { VoiceRecorder } from './VoiceRecorder';
+import { TherapeuticSupportModal } from './TherapeuticSupportModal';
 
 interface HomeViewProps {
   onStartWithDream: (dreamText: string) => void;
-  onGoToApp: () => void;
+  onGoToApp: (tab?: 'workspace' | 'dna' | 'constellation' | 'mystery') => void;
   onGoToAdmin: () => void;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
   onStartWithDream,
   onGoToApp,
-  onGoToAdmin,
 }) => {
   const [draftDream, setDraftDream] = useState('');
+  const [isVoiceOpen, setIsVoiceOpen] = useState(false);
+  const [isTherapeuticOpen, setIsTherapeuticOpen] = useState(false);
 
   const samplePrompts = [
-    '我夢到自己返回以前讀書的學校，但所有人都不認得我。我一直找課室，最後發現自己沒有穿鞋……',
-    '海水一路無聲地升高，水面漫過街道與窗戶，我爬到最高處的屋頂，看著一片汪洋，雖然害怕，但周圍好安靜。',
-    '有人在身後一直追著我，我心跳好快，一直狂奔，最後推開了一間荒廢木造舊屋的門躲在裡面……',
+    { label: '🏫 舊校赤腳找課室', text: '我夢到自己返回以前讀書的學校，但所有人都不認得我。我一直找課室，最後發現自己沒有穿鞋……' },
+    { label: '🌊 海水升至屋頂', text: '海水一路無聲地升高，水面漫過街道與窗戶，我爬到最高處的屋頂，看著一片汪洋，雖然害怕，但周圍好安靜。' },
+    { label: '🏃 被黑影追逐躲入舊居', text: '有人在身後一直追著我，我心跳好快，一直狂奔，最後推開了一間小時候住過的舊居躲在神枱旁……' },
+    { label: '🕯️ 已故母親報夢託付', text: '我夢見回到小時候的祖屋，已故的母親在神枱前遞給我一串金屬鑰匙，眼神好溫柔但講唔出聲……' },
   ];
 
   const handleStart = () => {
-    onStartWithDream(draftDream);
+    onStartWithDream(draftDream || samplePrompts[0].text);
   };
 
   return (
-    <main id="home-view-main">
-      <section className="hero shell" id="hero-section">
-        <div className="eyebrow" id="hero-eyebrow">
+    <main id="home-view-main" className="overflow-hidden">
+      {/* HERO SECTION - Clean, Simple, Breathing Room */}
+      <section className="hero shell relative py-12 sm:py-20 text-center" id="hero-section">
+        {/* Glow backdrop light */}
+        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[600px] h-[300px] bg-gradient-to-tr from-[#aa9cff]/15 via-[#71d9ff]/10 to-transparent rounded-full blur-[120px] pointer-events-none" />
+
+        {/* Eyebrow */}
+        <div className="eyebrow inline-flex items-center gap-2 mb-4" id="hero-eyebrow">
           <Sparkles className="w-3.5 h-3.5 text-[#aa9cff]" />
-          <span>☾ Book Brain × DeepSeek / Gemini × Dream Memory</span>
+          <span>DREAMWISDOM · 你的專屬夢境宇宙</span>
         </div>
 
-        <h1 id="hero-title">
-          <span className="grad">昨晚發咗一個奇怪嘅夢？</span>
+        {/* Primary Headline */}
+        <h1 id="hero-title" className="text-3xl sm:text-5xl md:text-6xl font-serif font-bold text-white tracking-tight max-w-4xl mx-auto leading-tight">
+          每一個夢，都是潛意識留給你的信。
         </h1>
 
-        <p className="lead" id="hero-lead">
-          寫低你記得嘅夢。DreamWisdom 唔係憑空估，而係先從管理員建立嘅 Book Brain 找出相關理論，
-          再由 AI 結合你過往夢境，整理可能值得留意嘅訊息。
+        {/* Subtitle */}
+        <p className="text-lg sm:text-2xl font-medium text-white/90 max-w-2xl mx-auto mt-4" id="hero-lead">
+          別人解讀你的夢。<b>我們記得你的夢。</b>
         </p>
 
-        <div className="dreambox" id="hero-dreambox">
-          <textarea
-            value={draftDream}
-            onChange={(e) => setDraftDream(e.target.value)}
-            placeholder="例如：我夢到自己返回以前讀書的學校，但所有人都不認得我。我一直找課室，最後發現自己沒有穿鞋……"
-            id="hero-dream-textarea"
-          />
-
-          <div className="flex flex-wrap gap-2 px-4 py-2 border-t border-white/5 bg-white/[0.02]">
-            <span className="text-xs text-[#8e98b7] flex items-center gap-1 self-center">快速試試：</span>
-            {samplePrompts.map((p, i) => (
-              <button
-                key={i}
-                type="button"
-                onClick={() => setDraftDream(p)}
-                className="text-xs px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-[#cbd2ef] hover:bg-white/10 hover:text-white transition-colors"
-              >
-                {i === 0 ? '🏫 舊學校赤腳' : i === 1 ? '🌊 海水升至屋頂' : '🏃 被追逐進舊屋'}
-              </button>
-            ))}
-          </div>
-
-          <div className="dreamfoot" id="hero-dream-foot">
-            <span className="muted tiny">登入後，每份報告都會自動保存到你的夢境歷史，並支援長期串連。</span>
-            <button
-              type="button"
-              className="btn"
-              onClick={handleStart}
-              id="hero-start-btn"
-            >
-              <Sparkles className="w-4 h-4 text-[#08101d]" />
-              ✨ 開始深度解夢
-            </button>
-          </div>
+        {/* Small Fine Print with Therapeutic Option */}
+        <div className="flex items-center justify-center gap-1.5 text-xs sm:text-sm text-[#aab3d2] mt-3 max-w-xl mx-auto">
+          <span>免費探索你的夢境宇宙。若重複的夢持續帶來困擾，</span>
+          <button
+            type="button"
+            onClick={() => setIsTherapeuticOpen(true)}
+            className="text-[#78e1b5] hover:underline font-medium inline-flex items-center gap-0.5 cursor-pointer"
+          >
+            <Heart className="w-3.5 h-3.5 inline" />
+            我們提供後續療癒支援選項
+          </button>
         </div>
 
-        <div className="trust" id="hero-trust-badges">
-          <span className="flex items-center gap-1.5">
-            <Shield className="w-4 h-4 text-[#78e1b5]" /> 私密保存
-          </span>
-          <span className="flex items-center gap-1.5">
-            <BookOpen className="w-4 h-4 text-[#71d9ff]" /> Book-grounded
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Brain className="w-4 h-4 text-[#aa9cff]" /> 可串連過往夢境
-          </span>
-        </div>
-      </section>
+        {/* Interactive Dream Input Box */}
+        <div className="dreambox max-w-3xl mx-auto mt-8 relative z-10 text-left" id="hero-dreambox">
+          {isVoiceOpen ? (
+            <VoiceRecorder
+              onDreamRecorded={(organizedText) => {
+                setDraftDream(organizedText);
+                setIsVoiceOpen(false);
+                onStartWithDream(organizedText);
+              }}
+              onCancel={() => setIsVoiceOpen(false)}
+            />
+          ) : (
+            <>
+              <div className="relative">
+                <textarea
+                  value={draftDream}
+                  onChange={(e) => setDraftDream(e.target.value)}
+                  placeholder="寫低你記得嘅夢境……醒來時有甚麼畫面？（可直接打字或使用廣東話語音輸入）"
+                  id="hero-dream-textarea"
+                  rows={4}
+                />
 
-      <section className="section shell" id="how">
-        <div className="eyebrow">
-          <Brain className="w-3.5 h-3.5 text-[#71d9ff]" />
-          <span>核心流程</span>
-        </div>
-        <h2 style={{ marginTop: 16 }}>唔係一次性「問 AI」，而係建立你自己嘅 Dream Memory。</h2>
-        <p className="sectionLead">
-          每次解夢都保存；當累積更多夢境，你可以一鍵要求 DreamWisdom 將多次夢境串連，分析重複人物、場景、情緒與主題。
-        </p>
-
-        <div className="grid3" id="how-grid-cards">
-          <div className="card" id="card-book-brain">
-            <div className="icon">📚</div>
-            <h3>Book Brain</h3>
-            <p>
-              只有管理員可上傳書籍。系統抽取文字或 OCR 掃描頁，再切成可搜尋知識段落，收錄榮格、佛洛伊德及現代睡眠認知科學典籍。
-            </p>
-          </div>
-
-          <div className="card" id="card-grounded-search">
-            <div className="icon">🔎</div>
-            <h3>先搵書，再解夢</h3>
-            <p>
-              每次解夢先檢索最相關書本內容，再將來源連同夢境送交 AI 模型，標註理論學派出處，減少憑空臆測。
-            </p>
-          </div>
-
-          <div className="card" id="card-dream-patterns">
-            <div className="icon">🌙</div>
-            <h3>Long-term Dream Pattern</h3>
-            <p>
-              保存所有夢境與報告，再串連分析近期心境演變、重複象徵與可能嘅心理主題，作為自我成長的鏡子。
-            </p>
-          </div>
-        </div>
-      </section>
-
-      <section className="section shell" id="perspectives-section">
-        <div className="grid2">
-          <div className="card flex flex-col justify-between" id="user-perspective-card">
-            <div>
-              <div className="eyebrow mb-2">
-                <User className="w-3.5 h-3.5 text-[#78e1b5]" />
-                <span>USER 用戶視角</span>
+                {/* Voice button */}
+                <button
+                  type="button"
+                  onClick={() => setIsVoiceOpen(true)}
+                  className="absolute bottom-4 right-4 p-2.5 rounded-full bg-[#aa9cff]/20 hover:bg-[#aa9cff]/30 text-[#c3b9ff] border border-[#aa9cff]/40 transition-all flex items-center gap-1.5 text-xs font-medium cursor-pointer"
+                  title="切換廣東話語音輸入"
+                >
+                  <Mic className="w-4 h-4" />
+                  <span className="hidden sm:inline">🎙️ 廣東話講夢</span>
+                </button>
               </div>
-              <h2 style={{ fontSize: 30, marginTop: 14 }}>用戶只需要做一件事：講個夢。</h2>
-              <p className="mt-2 text-[#aab3d2] leading-relaxed">
-                介面保持簡約純粹；登入、過往夢境、報告、串連分析全部放入「我的夢境」，唔迫用戶理解後台複雜的 RAG 向量與分塊技術。
-              </p>
+
+              {/* Sample Pills */}
+              <div className="flex flex-wrap gap-2 px-4 py-2.5 border-t border-white/5 bg-white/[0.02]">
+                <span className="text-xs text-[#8e98b7] self-center">快速試試：</span>
+                {samplePrompts.map((p, i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    onClick={() => setDraftDream(p.text)}
+                    className="text-xs px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-[#cbd2ef] hover:bg-white/10 hover:text-white transition-colors"
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Actions */}
+              <div className="dreamboxActions p-4 flex flex-wrap items-center justify-between gap-4 border-t border-white/10 bg-black/30">
+                <div className="text-xs text-[#8e98b7] flex items-center gap-3">
+                  <span>✨ 輸入後即獲簡單基本分析</span>
+                  <span>•</span>
+                  <span>🔮 可選擇進一步 AI 深入解密</span>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={handleStart}
+                  className="btn text-sm px-6 py-2.5 font-semibold shadow-lg shadow-[#aa9cff]/20 flex items-center gap-2"
+                  id="hero-cta-record-btn"
+                >
+                  <span>記錄你的夢（免費開始）</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </section>
+
+      {/* THREE PILLARS - Clean & Concise without word walls */}
+      <section className="shell py-12 border-t border-white/5" id="three-pillars-section">
+        <div className="text-center max-w-xl mx-auto mb-8">
+          <h2 className="text-2xl sm:text-3xl font-serif font-bold text-white">
+            三大夢境核心支柱
+          </h2>
+          <p className="text-xs sm:text-sm text-[#aab3d2] mt-1.5">
+            不僅解今晚的一場夢，更為你串連終身的潛意識宇宙。
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          {/* Pillar 1 */}
+          <div
+            onClick={() => onGoToApp('dna')}
+            className="card p-6 rounded-3xl bg-[#0f1225]/80 border border-[#aa9cff]/20 hover:border-[#aa9cff]/50 transition-all cursor-pointer group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-[#aa9cff]/15 flex items-center justify-center text-[#c3b9ff] mb-3">
+              <Dna className="w-5 h-5" />
             </div>
-            <div className="mt-6">
-              <button
-                type="button"
-                onClick={onGoToApp}
-                className="btn dark flex items-center gap-2"
-                id="btn-goto-app-from-home"
-              >
-                <span>進入我的夢境工作台</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
+            <h3 className="text-lg font-serif font-bold text-white">① DREAM DNA™️</h3>
+            <p className="text-xs text-[#78e1b5] font-mono mt-0.5">你的個人夢境指紋</p>
+            <p className="text-xs text-[#aab3d2] mt-2 leading-relaxed">
+              統計象徵頻率（水、門、舊居）與情緒分佈，不再只是片面象徵，而是建立你的專屬心靈指紋。
+            </p>
           </div>
 
-          <div className="card flex flex-col justify-between" id="admin-perspective-card">
-            <div>
-              <div className="eyebrow mb-2">
-                <Sliders className="w-3.5 h-3.5 text-[#aa9cff]" />
-                <span>ADMIN 管理員視角</span>
-              </div>
-              <h2 style={{ fontSize: 30, marginTop: 14 }}>管理員控制「腦」同「語氣」。</h2>
-              <p className="mt-2 text-[#aab3d2] leading-relaxed">
-                Book Brain 知識庫、AI 輸出個性滑桿（親和度 vs 分析度、決斷性、深度、溫度）、用戶角色授權、全站解夢記錄集中一個後台管理。
-              </p>
+          {/* Pillar 2 */}
+          <div
+            onClick={() => onGoToApp('constellation')}
+            className="card p-6 rounded-3xl bg-[#0f1225]/80 border border-[#71d9ff]/20 hover:border-[#71d9ff]/50 transition-all cursor-pointer group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-[#71d9ff]/15 flex items-center justify-center text-[#71d9ff] mb-3">
+              <Compass className="w-5 h-5" />
             </div>
-            <div className="mt-6">
-              <button
-                type="button"
-                onClick={onGoToAdmin}
-                className="btn dark flex items-center gap-2"
-                id="btn-goto-admin-from-home"
-              >
-                <span>打開管理員控制室</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+            <h3 className="text-lg font-serif font-bold text-white">② 星圖 CONSTELLATION™️</h3>
+            <p className="text-xs text-[#71d9ff] font-mono mt-0.5">夢境宇宙網絡連線</p>
+            <p className="text-xs text-[#aab3d2] mt-2 leading-relaxed">
+              將不同夢境的人、地、情緒連成星圖，發現「水從洪水變平靜」等心境轉變軌跡。
+            </p>
+          </div>
+
+          {/* Pillar 3 */}
+          <div
+            onClick={() => onGoToApp('mystery')}
+            className="card p-6 rounded-3xl bg-[#0f1225]/80 border border-[#ffd27a]/20 hover:border-[#ffd27a]/50 transition-all cursor-pointer group"
+          >
+            <div className="w-10 h-10 rounded-xl bg-[#ffd27a]/15 flex items-center justify-center text-[#ffd27a] mb-3">
+              <Key className="w-5 h-5" />
             </div>
+            <h3 className="text-lg font-serif font-bold text-white">③ 30 NIGHTS MYSTERY™️</h3>
+            <p className="text-xs text-[#ffd27a] font-mono mt-0.5">30日逐步揭示潛意識</p>
+            <p className="text-xs text-[#aab3d2] mt-2 leading-relaxed">
+              每晚解鎖線索碎片，最後生成一份震撼的「你的夢在反覆講甚麼」全息報告書。
+            </p>
           </div>
         </div>
       </section>
 
-      <footer className="footer" id="site-footer">
-        <div className="shell flex flex-col sm:flex-row items-center justify-between gap-4 text-center sm:text-left">
-          <div>
-            <span className="font-semibold text-white">DreamWisdom</span> · 夢境智慧
-            <div className="text-xs text-[#6e7796] mt-1">
-              AI dream reflection is for self-exploration and is not a medical or psychological diagnosis.
-            </div>
-          </div>
-          <div className="text-xs text-[#8e98b7]">
-            Carl G. Jung · Sigmund Freud · Modern Sleep Cognitive Science
-          </div>
-        </div>
-      </footer>
+      {/* Therapeutic Support Modal */}
+      <TherapeuticSupportModal
+        isOpen={isTherapeuticOpen}
+        onClose={() => setIsTherapeuticOpen(false)}
+      />
     </main>
   );
 };

@@ -1,10 +1,10 @@
 import React from 'react';
-import { Moon, Clock, Brain, Settings, ArrowLeft, LogOut, Sparkles } from 'lucide-react';
+import { Sparkles, Dna, Compass, Key, Clock, Brain, Settings, ArrowLeft, LogOut } from 'lucide-react';
 
 interface SidebarProps {
   isAdmin?: boolean;
-  activeSection?: 'workspace' | 'history' | 'patterns';
-  onNavigate: (view: 'home' | 'app' | 'admin', section?: 'workspace' | 'history' | 'patterns') => void;
+  activeSection?: 'workspace' | 'dna' | 'constellation' | 'mystery' | 'history' | 'patterns';
+  onNavigate: (view: 'home' | 'app' | 'admin', section?: 'workspace' | 'dna' | 'constellation' | 'mystery' | 'history' | 'patterns') => void;
   onLogout: () => void;
 }
 
@@ -16,7 +16,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 }) => {
   return (
     <aside className="sidebar" id="app-sidebar">
-      <div className="sidecard">
+      <div className="sidecard space-y-1">
         <button
           type="button"
           onClick={() => onNavigate('app', 'workspace')}
@@ -24,7 +24,37 @@ export const Sidebar: React.FC<SidebarProps> = ({
           id="sidebar-item-workspace"
         >
           <Sparkles className="w-4 h-4 text-[#aa9cff]" />
-          <span>🌙 我的夢境</span>
+          <span>🌙 夢境解碼</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onNavigate('app', 'dna')}
+          className={`sideitem ${activeSection === 'dna' ? 'active' : ''}`}
+          id="sidebar-item-dna"
+        >
+          <Dna className="w-4 h-4 text-[#aa9cff]" />
+          <span>🧬 DREAM DNA™️</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onNavigate('app', 'constellation')}
+          className={`sideitem ${activeSection === 'constellation' ? 'active' : ''}`}
+          id="sidebar-item-constellation"
+        >
+          <Compass className="w-4 h-4 text-[#71d9ff]" />
+          <span>🌌 星圖宇宙</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => onNavigate('app', 'mystery')}
+          className={`sideitem ${activeSection === 'mystery' ? 'active' : ''}`}
+          id="sidebar-item-mystery"
+        >
+          <Key className="w-4 h-4 text-[#ffd27a]" />
+          <span>🗝️ 30 NIGHTS</span>
         </button>
 
         <button
@@ -33,19 +63,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
           className={`sideitem ${activeSection === 'history' ? 'active' : ''}`}
           id="sidebar-item-history"
         >
-          <Clock className="w-4 h-4 text-[#ffd27a]" />
-          <span>🕰️ 過往報告</span>
+          <Clock className="w-4 h-4 text-[#78e1b5]" />
+          <span>🕰️ 日記典藏</span>
         </button>
 
-        <button
-          type="button"
-          onClick={() => onNavigate('app', 'patterns')}
-          className={`sideitem ${activeSection === 'patterns' ? 'active' : ''}`}
-          id="sidebar-item-patterns"
-        >
-          <Brain className="w-4 h-4 text-[#71d9ff]" />
-          <span>🧠 串連分析</span>
-        </button>
+        <div className="my-2 border-t border-white/10" />
 
         {isAdmin && (
           <button
@@ -58,8 +80,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
             <span>⚙️ 管理員後台</span>
           </button>
         )}
-
-        <div className="my-2 border-t border-white/10" />
 
         <button
           type="button"
@@ -78,7 +98,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           id="sidebar-item-logout"
         >
           <LogOut className="w-4 h-4" />
-          <span>↪ 登出／切換</span>
+          <span>登出</span>
         </button>
       </div>
     </aside>

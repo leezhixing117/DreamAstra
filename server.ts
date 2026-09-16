@@ -1,13 +1,9 @@
 import express from 'express';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
 import dotenv from 'dotenv';
 
 dotenv.config();
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 const app = express();
 const PORT = 3000;
@@ -94,10 +90,40 @@ function fallbackAnalyze(dream: string, settings?: any) {
 
   const title = dream.length > 25 ? dream.slice(0, 20).trim() + '…' : (dream.trim() || '昨夜的潛意識迴響');
 
+  // Dynamic Four-Layer Contemporary Asian Reading
+  const fourLayers = {
+    asianCulturalLayer: {
+      title: '當代東方文化層 · 集體記憶與家族倫理',
+      description: lower.includes('媽') || lower.includes('神枱') || lower.includes('祖')
+        ? '在嶺南與華人傳統觀念中，神枱與長輩是家宅神聖秩序的根基。夢見親人或祖屋往往反映家族責任感、孝道牽絆，或是現實面臨轉折時渴望尋求根源的庇佑。'
+        : lower.includes('校') || lower.includes('考') || lower.includes('鞋')
+        ? '校舍與公開試是華人社會集體潛意識中的「考場烙印」。即使步入成年，每當現實面臨評核、社會認同或轉換軌道的壓力，心靈便會本能召喚這份赤腳考試的無力感。'
+        : lower.includes('水') || lower.includes('海')
+        ? '東方哲學講究「上善若水」，但水勢升高亦如隱忍的情感潮水。你夢中的水正在反映表面平靜下積聚的情感水位，提示適時釋放。'
+        : '結合華人家庭與社會生活背景，夢境正在投射你在群體期待與個人自由之間的取捨。',
+      keywords: lower.includes('媽') ? ['家族根基', '長輩託付', '神枱庇護'] : ['自我檢驗', '隱性期待', '心靈過渡'],
+    },
+    jungianLayer: {
+      title: '榮格分析心理學 · 原型與陰影整合',
+      description: '榮格指出夢是潛意識自發的補償機制（Compensation）。夢境中的象徵不是偶然，而是自性（Self）試圖喚醒意識自我，正視被壓抑的渴望或未消化的恐懼。',
+      archetype: lower.includes('追') ? 'Shadow (陰影追逐)' : lower.includes('海') ? 'The Great Mother / Unconscious (無意識之海)' : 'Persona & Threshold (面具與過渡關卡)',
+    },
+    personalLayer: {
+      title: '個人生活現實層 · 壓力與情感映射',
+      description: '夢境將你這幾天在清醒時無暇細想的微小情緒放大。它提示你需要一個安靜的空間來消化近期的變動。',
+    },
+    integrationAction: {
+      title: '療癒與整合行動指南',
+      advice: '今天給自己十分鐘放空時間，對那個在夢中奔忙無措的自己說一句：「我知道你很努力了，現在的我們是安全的。」',
+    },
+  };
+
   return {
     title: `解構夢境：${title}`,
     summary: `這個夢境並非隨機神經雜訊，而是你的潛意識正透過具象化的情境（如「${symbols[0]?.symbol || '主要場景'}」）處理近期的心理轉變與張力。當你試圖在變動中找到立足點時，內在正在尋找調適與自我整合的平衡。`,
     symbols: symbols.slice(0, 4),
+    fourLayers,
+    detectiveAnswers: undefined as Record<string, string> | undefined,
     perspectives: [
       {
         name: '榮格分析心理學 (Jungian Perspective)',
@@ -115,9 +141,66 @@ function fallbackAnalyze(dream: string, settings?: any) {
     ],
     sources: [
       { book_title: 'Man and His Symbols (Carl G. Jung)', page_start: 34, page_end: 38 },
-      { book_title: 'The Interpretation of Dreams (Sigmund Freud)', page_start: 112, page_end: 115 },
-      { book_title: 'Dreaming: A Very Short Introduction (J. Allan Hobson)', page_start: 58, page_end: 62 }
+      { book_title: '當代華人夢境象徵與心理原鄉', page_start: 74, page_end: 78 },
+      { book_title: 'The Interpretation of Dreams (Sigmund Freud)', page_start: 112, page_end: 115 }
     ]
+  };
+}
+
+// Quick basic analysis for phase 1 (avoiding text overload)
+function fallbackQuickAnalyze(dream: string) {
+  const lower = dream.toLowerCase();
+  let title = '昨夜夢境初步解讀';
+  let simpleSummary = '這個夢反映你內在正在調適近期的心境轉變，試圖在日常步調中整理隱藏的思緒。';
+  let primarySymbol = { symbol: '💭 潛意識意象', meaning: '代表心靈深處對平靜與安全感的渴望。' };
+  let quickTakeaway = '放下對完美的苛求，給自己一點喘息空間。';
+
+  if (lower.includes('水') || lower.includes('海') || lower.includes('雨')) {
+    title = '水象湧動之夢';
+    simpleSummary = '水象徵情緒與潛意識的流動。夢中的水勢反映你近期內心積累的情感水位，正在尋找自然的宣洩出口。';
+    primarySymbol = { symbol: '🌊 水 / 海洋', meaning: '情感的承載與淨化，代表潛意識對釋放與放鬆的渴求。' };
+    quickTakeaway = '允許情緒自然流淌，無需強行壓抑。';
+  } else if (lower.includes('追') || lower.includes('跑') || lower.includes('逃')) {
+    title = '奔跑追逐之夢';
+    simpleSummary = '被追趕通常象徵現實生活中的時間緊迫感、責任期待，或是你在潛意識中暫時迴避處理的事情。';
+    primarySymbol = { symbol: '🏃 追趕與奔馳', meaning: '內心焦慮與壓力的具象化，提示生活節奏已達臨界點。' };
+    quickTakeaway = '停下腳步回頭看，很多擔憂其實來自未知的想像。';
+  } else if (lower.includes('門') || lower.includes('屋') || lower.includes('房') || lower.includes('校')) {
+    title = '空間穿梭與門戶之夢';
+    simpleSummary = '房間與門戶象徵心靈的不同層次或即將面臨的生活過渡期。尋找門路代表你渴望找到清晰的下一步方向。';
+    primarySymbol = { symbol: '🚪 門戶與場所', meaning: '心理邊界與過渡關卡，象徵人生新階段的抉擇。' };
+    quickTakeaway = '不必急於推開所有門，順應內心直覺前行。';
+  } else if (lower.includes('媽') || lower.includes('母') || lower.includes('神枱') || lower.includes('親')) {
+    title = '親情與守護之夢';
+    simpleSummary = '長輩或故人的身影往往代表溫暖的庇護、道德責任，或是你在感到疲憊時對無條件接納的渴望。';
+    primarySymbol = { symbol: '🕯️ 親情與根基', meaning: '心靈原鄉的安全感，提醒你回歸內心的初心。' };
+    quickTakeaway = '記住你背後始終有一份默默守護的力量。';
+  }
+
+  const suggestedQuestions = [
+    {
+      id: 'q1',
+      question: '① 醒來睜開眼的第一瞬間，胸口殘留最深刻的感受是什麼？',
+      options: ['心跳加速，殘留焦慮或緊張', '莫名的惆悵與失落感', '如釋重負，感到平靜或放鬆', '困惑不解，覺得離奇荒謬'],
+    },
+    {
+      id: 'q2',
+      question: '② 夢中最令你印象深刻、甚至發光的「核心焦點」是什麼？',
+      options: ['一個特定人物的神情或舉動', '一個具體的場所（如門、舊屋、高處）', '一種身體感覺（如跑不動、浮起）', '一種特別的氛圍或天氣'],
+    },
+    {
+      id: 'q3',
+      question: '③ 如果這個夢是一封潛意識的信，你直覺它在提醒你現實哪件事？',
+      options: ['人際或親密關係裡的糾結', '工作或生活責任的重壓', '身體健康與精力透支警號', '面對過去某段經歷的告別與放下'],
+    },
+  ];
+
+  return {
+    title,
+    simpleSummary,
+    primarySymbol,
+    quickTakeaway,
+    suggestedQuestions,
   };
 }
 
@@ -126,10 +209,95 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
-// 2. Dream Analyze API with Gemini + Book Brain
+// 2. Quick Simple Dream Analysis API (Step 1: 簡單基本分析，避免文字過多)
+app.post('/api/dream/quick-analyze', async (req, res) => {
+  try {
+    const { dream } = req.body;
+    if (!dream || typeof dream !== 'string' || !dream.trim()) {
+      return res.status(400).json({ error: '請提供夢境內容' });
+    }
+
+    const ai = getGeminiClient();
+    if (!ai) {
+      const quickReport = fallbackQuickAnalyze(dream);
+      return res.json({ report: quickReport, source: 'fallback' });
+    }
+
+    const systemInstruction = `
+你是一位精通現代夢境象徵與心理學的專業解夢助手。
+請保持版面簡單、文字精煉！為用戶提供的「基本夢作簡單分析」，字數宜少而精，切忌冗長廢話。
+同時產出 3 條與此夢境直接相關的進一步問題，以便用戶決定是否進行進一步 AI 深度解夢。
+必須輸出繁體中文，格式嚴格符合 JSON Schema。
+`;
+
+    const prompt = `請針對以下夢境作簡明的第一步基本分析，並提供 3 條針對性的進一步探索問題：\n\n"${dream}"`;
+
+    const responsePromise = ai.models.generateContent({
+      model: 'gemini-3.8-flash',
+      contents: prompt,
+      config: {
+        systemInstruction,
+        temperature: 0.3,
+        thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+        responseMimeType: 'application/json',
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            title: { type: Type.STRING, description: '5-12字清雅夢境標題' },
+            simpleSummary: { type: Type.STRING, description: '2句簡潔通透的基本心理意涵分析' },
+            primarySymbol: {
+              type: Type.OBJECT,
+              properties: {
+                symbol: { type: Type.STRING, description: '核心象徵物（帶emoji）' },
+                meaning: { type: Type.STRING, description: '1句簡明象徵寓意' },
+              },
+              required: ['symbol', 'meaning'],
+            },
+            quickTakeaway: { type: Type.STRING, description: '1句日常行動或心靈溫暖提示' },
+            suggestedQuestions: {
+              type: Type.ARRAY,
+              description: '3條針對該夢境的進一步確認問題（用於進一步AI深度解夢）',
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  id: { type: Type.STRING },
+                  question: { type: Type.STRING },
+                  options: {
+                    type: Type.ARRAY,
+                    items: { type: Type.STRING },
+                  },
+                },
+                required: ['id', 'question', 'options'],
+              },
+            },
+          },
+          required: ['title', 'simpleSummary', 'primarySymbol', 'quickTakeaway', 'suggestedQuestions'],
+        },
+      },
+    });
+
+    const result = await Promise.race([
+      responsePromise,
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error('AI 生成超時')), 12000)
+      ),
+    ]);
+
+    const text = result.text;
+    if (!text) throw new Error('AI 生成內容為空');
+    const quickReport = JSON.parse(text);
+    return res.json({ report: quickReport, source: 'gemini' });
+  } catch (err: any) {
+    console.warn('Quick analyze fallback triggered:', err.message);
+    const quickReport = fallbackQuickAnalyze(req.body.dream || '');
+    return res.json({ report: quickReport, source: 'fallback' });
+  }
+});
+
+// 3. Dream Analyze API with Gemini + Book Brain (Step 2: 深度分析)
 app.post('/api/dream/analyze', async (req, res) => {
   try {
-    const { dream, settings } = req.body;
+    const { dream, settings, detectiveAnswers } = req.body;
     if (!dream || typeof dream !== 'string' || !dream.trim()) {
       return res.status(400).json({ error: '請提供夢境內容' });
     }
@@ -138,6 +306,9 @@ app.post('/api/dream/analyze', async (req, res) => {
     if (!ai) {
       // Fallback mode if GEMINI_API_KEY is not configured
       const report = fallbackAnalyze(dream, settings);
+      if (detectiveAnswers) {
+        report.detectiveAnswers = detectiveAnswers;
+      }
       const entry = {
         id: 'dream_' + Date.now(),
         title: report.title,
@@ -154,25 +325,21 @@ app.post('/api/dream/analyze', async (req, res) => {
     const model = 'gemini-3.8-flash';
 
     const systemInstruction = `
-你是一位精通分析心理學（榮格學派）、精神分析與現代睡眠神經認知科學的專業「夢境智慧 (DreamWisdom)」解夢顧問。
-用戶將提供昨晚或最近的夢境，請你基於經典夢學理論（如 Carl G. Jung《Man and His Symbols》、Sigmund Freud《The Interpretation of Dreams》、J. Allan Hobson《Dreaming》）提供客觀、溫暖且富有洞察力的解夢報告。
+你是一位精通當代東方文化深度解夢（Contemporary Asian Dream Reading）與榮格分析心理學的專業「夢境智慧 (DreamWisdom)」解夢大師。
+請特別注意：東方人的夢，請用當代東方生活與文化集體記憶（例如：家族責任、舊屋邨、拜神與神枱、已故親人報夢、赤腳考試與會考烙印、水之角色轉化）去真正理解，而不是照搬西方教科書。
 
-參數調整要求：
-- 親和/個性 (0-100)：目前為 ${personality}（較高代表溫暖、富畫面感與同理心；較低代表學術分析風格）。
-- 決斷性 (0-100)：目前為 ${decisiveness}（提供明確假設與探索線索，但保持自我探索本質，不妄下心理醫學診斷）。
-- 報告深度 (20-100)：目前為 ${depth}（深入剖析原型、情緒機制與潛意識動態）。
+用戶在解夢前已回答了 3 條偵探確認問題。你的解讀必須明確反映用戶的直覺感受與校準，切忌輸出千篇一律的通用模板。
 
 嚴格規則：
-1. 請以正體中文（繁體中文 / 帶有親切自然的語氣）撰寫。
-2. 絕對不作任何醫學或精神病理學診斷，將夢境定位為個人的潛意識自我對話與心靈反思。
+1. 請以正體中文（繁體中文 / 帶有深邃、溫暖且富有洞察力的語氣）撰寫。
+2. 絕對不作任何醫學或精神病理學診斷，將夢境定位為個人的潛意識自我對話與心靈指引。
 3. 輸出必須符合 JSON Schema 結構。
 `;
 
-    const prompt = `
-請分析以下夢境，並給予典籍依據與多維度視角：
-夢境內容：
-"${dream}"
-`;
+    let prompt = `請分析以下夢境，並給予當代東方文化層與榮格心理學的四層立體解析：\n夢境記述：\n"${dream}"\n`;
+    if (detectiveAnswers && Object.keys(detectiveAnswers).length > 0) {
+      prompt += `\n【偵探確認校準資訊】：\n${JSON.stringify(detectiveAnswers, null, 2)}\n請在報告中展現「現在這個夢的意思已經和普通模板不同了」的專屬感。\n`;
+    }
 
     const responsePromise = ai.models.generateContent({
       model,
@@ -195,13 +362,14 @@ app.post('/api/dream/analyze', async (req, res) => {
                 properties: {
                   symbol: { type: Type.STRING, description: '象徵物（可帶emoji，如 🏫 舊學校）' },
                   meaning: { type: Type.STRING, description: '深層心理學解讀' },
+                  culturalContext: { type: Type.STRING, description: '東方文化或嶺南生活意涵' },
                 },
                 required: ['symbol', 'meaning'],
               },
             },
             perspectives: {
               type: Type.ARRAY,
-              description: '不同理論視角（如榮格分析心理學、現代睡眠研究、格式塔完形）',
+              description: '不同理論視角（如榮格分析心理學、現代睡眠研究、當代東方心靈）',
               items: {
                 type: Type.OBJECT,
                 properties: {
@@ -239,6 +407,7 @@ app.post('/api/dream/analyze', async (req, res) => {
 
     if (!response || !response.text) {
       const fallback = fallbackAnalyze(dream, settings);
+      if (detectiveAnswers) fallback.detectiveAnswers = detectiveAnswers;
       return res.json({
         report: fallback,
         entry: {
@@ -255,6 +424,15 @@ app.post('/api/dream/analyze', async (req, res) => {
     const text = response.text || '';
     const report = JSON.parse(text);
 
+    // Complement with fourLayers if missing
+    if (!report.fourLayers) {
+      const fallback = fallbackAnalyze(dream, settings);
+      report.fourLayers = fallback.fourLayers;
+    }
+    if (detectiveAnswers) {
+      report.detectiveAnswers = detectiveAnswers;
+    }
+
     const entry = {
       id: 'dream_' + Date.now(),
       title: report.title,
@@ -268,6 +446,9 @@ app.post('/api/dream/analyze', async (req, res) => {
     console.error('Error analyzing dream:', error);
     // Graceful fallback to guarantee uptime
     const fallback = fallbackAnalyze(req.body.dream || '', req.body.settings);
+    if (req.body.detectiveAnswers) {
+      fallback.detectiveAnswers = req.body.detectiveAnswers;
+    }
     const entry = {
       id: 'dream_' + Date.now(),
       title: fallback.title,
