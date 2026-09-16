@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { DreamEntry, DreamReport, DreamSynthesis, EngineSettings, QuickAnalysis, DetectiveQuestion } from '../types';
+import { DreamEntry, DreamReport, DreamSynthesis, EngineSettings, QuickAnalysis, DetectiveQuestion, User, normalizeRole, getRoleDisplayName } from '../types';
 import { initialDreamDNA, initialConstellationNodes, initialConstellationLinks, initialThirtyNightsJourney, initialDetectiveQuestions } from '../data';
 import { ReportDetailModal } from './ReportDetailModal';
 import { VoiceRecorder } from './VoiceRecorder';
@@ -25,6 +25,10 @@ import {
   ArrowRight,
   HelpCircle,
   RotateCcw,
+  Star,
+  Crown,
+  ShieldCheck,
+  Video,
 } from 'lucide-react';
 
 interface DreamWorkspaceProps {
@@ -33,7 +37,10 @@ interface DreamWorkspaceProps {
   demo?: boolean;
   prefilledDream?: string;
   initialTab?: 'workspace' | 'dna' | 'constellation' | 'mystery' | 'history';
+  currentUser?: User | null;
   onDreamAdded?: (entry: DreamEntry) => void;
+  onUpdateUserStars?: (newStars: number) => void;
+  onOpenEarnStars?: () => void;
 }
 
 export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
@@ -41,7 +48,10 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
   settings,
   prefilledDream = '',
   initialTab = 'workspace',
+  currentUser,
   onDreamAdded,
+  onUpdateUserStars,
+  onOpenEarnStars,
 }) => {
   const [activeTab, setActiveTab] = useState<'workspace' | 'dna' | 'constellation' | 'mystery' | 'history'>(initialTab);
   const [dream, setDream] = useState(prefilledDream);
@@ -131,7 +141,28 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
 
   // STEP 2: Trigger Further AI Analysis (進一步 AI 深度解夢)
   const handleOpenFurtherInquiry = () => {
-    setIsDetectiveOpen(true);
+    const normRole = currentUser ? normalizeRole(currentUser.role) : 'free';
+    const isDirectUnlock = normRole === 'paid' || normRole === 'admin' || normRole === 'super_admin';
+
+    if (isDirectUnlock) {
+      setIsDetectiveOpen(true);
+      return;
+    }
+
+    // General member star checking
+    const stars = currentUser?.stars ?? 2;
+    if (stars >= 1) {
+      if (onUpdateUserStars) {
+        onUpdateUserStars(stars - 1);
+      }
+      setIsDetectiveOpen(true);
+    } else {
+      if (onOpenEarnStars) {
+        onOpenEarnStars();
+      } else {
+        alert('你的星星餘額為 0。一般會員可透過觀看隨機短片儲星星！');
+      }
+    }
   };
 
   // STEP 3: Complete the 3 questions and run Deep Analysis
@@ -340,6 +371,70 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
       {/* TAB 1: WORKSPACE - INPUT, QUICK ANALYSIS & DEEP ANALYSIS FLOW */}
       {activeTab === 'workspace' && (
         <div className="space-y-6">
+          {/* Member Tier & Star Status Banner */}
+          {currentUser && (
+            <div
+              className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 ${
+                normalizeRole(currentUser.role) === 'free'
+                  ? 'bg-amber-400/5 border-amber-400/25'
+                  : 'bg-[#78e1b5]/10 border-[#78e1b5]/25'
+              }`}
+              id="workspace-member-status-banner"
+            >
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
+                    normalizeRole(currentUser.role) === 'free'
+                      ? 'bg-amber-400/15 text-amber-300 border border-amber-400/30'
+                      : 'bg-[#78e1b5]/20 text-[#78e1b5] border border-[#78e1b5]/30'
+                  }`}
+                >
+                  {normalizeRole(currentUser.role) === 'free' ? (
+                    <Star className="w-5 h-5 fill-amber-300/40" />
+                  ) : normalizeRole(currentUser.role) === 'paid' ? (
+                    <Crown className="w-5 h-5" />
+                  ) : (
+                    <ShieldCheck className="w-5 h-5" />
+                  )}
+                </div>
+
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-white">
+                      {getRoleDisplayName(currentUser.role)} · {currentUser.display_name || currentUser.email}
+                    </span>
+                    <span
+                      className={`text-[10px] px-2 py-0.2 rounded-full border ${
+                        normalizeRole(currentUser.role) === 'free'
+                          ? 'bg-amber-400/20 text-amber-300 border-amber-400/30 font-mono'
+                          : 'bg-[#78e1b5]/20 text-[#78e1b5] border-[#78e1b5]/30'
+                      }`}
+                    >
+                      {normalizeRole(currentUser.role) === 'free' ? `⭐ ${currentUser.stars ?? 2} 顆星` : '已直接解鎖'}
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-[#aab3d2] mt-0.5">
+                    {normalizeRole(currentUser.role) === 'free'
+                      ? '一般會員可透過隨機彈出片儲備星星，每次深度解夢消耗 1 顆星；初步解讀全免。'
+                      : '付費會員與管理員已直接解鎖全部進階深度解夢、星圖宇宙與 30 夜探索功能，免看片免扣星。'}
+                  </p>
+                </div>
+              </div>
+
+              {normalizeRole(currentUser.role) === 'free' && onOpenEarnStars && (
+                <button
+                  type="button"
+                  onClick={onOpenEarnStars}
+                  className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-amber-400/20 to-amber-500/20 border border-amber-400/40 text-amber-300 hover:bg-amber-400/30 text-xs font-bold flex items-center justify-center gap-1.5 transition-all cursor-pointer shrink-0 shadow-sm"
+                  id="btn-workspace-earn-stars"
+                >
+                  <Star className="w-3.5 h-3.5 fill-amber-300" />
+                  <span>隨機彈出片儲星星 (+1 ⭐)</span>
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Main Dream Input Card (Clean, Simple Layout) */}
           <section className="card p-6 sm:p-7 rounded-3xl bg-[#0e1122]/90 border border-white/10" id="dream-input-section">
             <div className="flex items-center justify-between mb-3">
@@ -516,31 +611,57 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                   <div className="flex items-center gap-1.5 text-xs font-bold text-[#c3b9ff]">
                     <HelpCircle className="w-3.5 h-3.5 text-[#aa9cff]" />
                     <span>需要進一步 AI 深度解夢？</span>
+                    {currentUser && normalizeRole(currentUser.role) !== 'free' && (
+                      <span className="text-[10px] px-2 py-0.2 rounded-full bg-[#78e1b5]/20 text-[#78e1b5] border border-[#78e1b5]/30">
+                        {getRoleDisplayName(currentUser.role)} · 直接解鎖
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-[#aab3d2] mt-0.5">
-                    回答 3 條與此夢有關的進一步問題，AI 將結合你的個人直覺，生成深度四層架構並更新你的 DREAM DNA™️。
+                    {currentUser && normalizeRole(currentUser.role) === 'free'
+                      ? `回答 3 條問題生成深度四層架構（一般會員消耗 1 顆星星 · 目前餘額：${currentUser.stars ?? 2} 顆）。`
+                      : '付費會員與管理員可直接解鎖回答 3 條問題，AI 將生成深度四層架構並更新你的 DREAM DNA™️。'}
                   </p>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={handleOpenFurtherInquiry}
-                  disabled={isDeepAnalyzing}
-                  className="btn text-xs px-5 py-2.5 font-semibold shrink-0 flex items-center gap-1.5 shadow-md shadow-[#aa9cff]/20 cursor-pointer"
-                  id="trigger-further-inquiry-btn"
-                >
-                  {isDeepAnalyzing ? (
-                    <>
-                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>深度解讀中…</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>🔮 回答 3 條問題進一步解夢</span>
-                      <ArrowRight className="w-3.5 h-3.5" />
-                    </>
+                <div className="flex items-center gap-2 shrink-0">
+                  {currentUser && normalizeRole(currentUser.role) === 'free' && (currentUser.stars ?? 2) < 1 && onOpenEarnStars && (
+                    <button
+                      type="button"
+                      onClick={onOpenEarnStars}
+                      className="px-3 py-2 rounded-xl bg-amber-400/20 text-amber-300 border border-amber-400/35 hover:bg-amber-400/30 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                    >
+                      <Star className="w-3.5 h-3.5 fill-amber-300" />
+                      <span>睇片儲星 (+1)</span>
+                    </button>
                   )}
-                </button>
+
+                  <button
+                    type="button"
+                    onClick={handleOpenFurtherInquiry}
+                    disabled={isDeepAnalyzing}
+                    className="btn text-xs px-5 py-2.5 font-semibold shrink-0 flex items-center gap-1.5 shadow-md shadow-[#aa9cff]/20 cursor-pointer"
+                    id="trigger-further-inquiry-btn"
+                  >
+                    {isDeepAnalyzing ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span>深度解讀中…</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>
+                          {currentUser && normalizeRole(currentUser.role) !== 'free'
+                            ? '👑 直接進入深度解夢 (回答 3 題)'
+                            : (currentUser?.stars ?? 2) >= 1
+                            ? '🔮 使用 1 星進入深度解夢 (回答 3 題)'
+                            : '🎬 儲星以解鎖深度解夢'}
+                        </span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
             </section>
           )}

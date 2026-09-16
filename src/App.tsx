@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { User, BookBrainItem, EngineSettings, DreamEntry } from './types';
+import { User, BookBrainItem, EngineSettings, DreamEntry, normalizeRole, getRoleDisplayName } from './types';
 import { INITIAL_USERS, INITIAL_BOOKS, INITIAL_SETTINGS, INITIAL_DREAMS } from './data';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
@@ -12,20 +12,33 @@ import { HomeView } from './components/HomeView';
 import { DreamWorkspace } from './components/DreamWorkspace';
 import { AdminConsole } from './components/AdminConsole';
 import { LoginModal } from './components/LoginModal';
-import { Sparkles, ShieldAlert, BookOpen } from 'lucide-react';
+import { StarVideoModal } from './components/StarVideoModal';
+import { Sparkles, ShieldAlert, BookOpen, Star } from 'lucide-react';
 
 export default function App() {
   // Load or initialize state from localStorage
   const [currentView, setCurrentView] = useState<'home' | 'app' | 'admin'>('home');
   const [activeSection, setActiveSection] = useState<'workspace' | 'dna' | 'constellation' | 'mystery' | 'history' | 'patterns'>('workspace');
   const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [isStarVideoOpen, setIsStarVideoOpen] = useState(false);
   const [prefilledDream, setPrefilledDream] = useState('');
 
   // Persistent user state
   const [users, setUsers] = useState<User[]>(() => {
     try {
       const saved = localStorage.getItem('dreamwisdom_users');
-      return saved ? JSON.parse(saved) : INITIAL_USERS;
+      if (saved) {
+        const parsed: User[] = JSON.parse(saved);
+        const existingIds = new Set(parsed.map((u) => u.id));
+        const merged = [...parsed];
+        for (const initialU of INITIAL_USERS) {
+          if (!existingIds.has(initialU.id)) {
+            merged.push(initialU);
+          }
+        }
+        return merged;
+      }
+      return INITIAL_USERS;
     } catch {
       return INITIAL_USERS;
     }
@@ -34,7 +47,10 @@ export default function App() {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
       const saved = localStorage.getItem('dreamwisdom_current_user');
-      return saved ? JSON.parse(saved) : INITIAL_USERS[0]; // Default logged in as initial admin for immediate full feature access
+      if (saved) {
+        return JSON.parse(saved);
+      }
+      return INITIAL_USERS[0]; // Default to super_admin (Mystic Blaza)
     } catch {
       return INITIAL_USERS[0];
     }
@@ -134,10 +150,43 @@ export default function App() {
     });
   };
 
+  const handleUpdateUsers = (newUsers: User[]) => {
+    setUsers(newUsers);
+    if (currentUser) {
+      const updatedSelf = newUsers.find((u) => u.id === currentUser.id);
+      if (updatedSelf) {
+        setCurrentUser(updatedSelf);
+      }
+    }
+  };
+
+  const handleUpdateBooks = (newBooks: BookBrainItem[]) => {
+    setBooks(newBooks);
+  };
+
+  const handleEarnStar = () => {
+    if (!currentUser) return;
+    const currentStars = currentUser.stars ?? 0;
+    const nextStars = currentStars + 1;
+    const updatedUser: User = { ...currentUser, stars: nextStars };
+    setCurrentUser(updatedUser);
+    setUsers((prev) => prev.map((u) => (u.id === currentUser.id ? updatedUser : u)));
+  };
+
+  const handleUpdateUserStars = (newStars: number) => {
+    if (!currentUser) return;
+    const updatedUser: User = { ...currentUser, stars: newStars };
+    setCurrentUser(updatedUser);
+    setUsers((prev) => prev.map((u) => (u.id === currentUser.id ? updatedUser : u)));
+  };
+
   const handleLogout = () => {
     setCurrentUser(null);
     setCurrentView('home');
   };
+
+  const normRole = currentUser ? normalizeRole(currentUser.role) : null;
+  const isManagement = normRole === 'admin' || normRole === 'super_admin';
 
   return (
     <div className="min-h-screen flex flex-col text-[#f6f7ff]" id="dreamwisdom-app-root">
@@ -148,6 +197,7 @@ export default function App() {
         currentUser={currentUser}
         onOpenLogin={() => setIsLoginOpen(true)}
         onLogout={handleLogout}
+        onOpenEarnStars={() => setIsStarVideoOpen(true)}
       />
 
       {/* Main View Switcher */}
@@ -166,10 +216,11 @@ export default function App() {
         <main className="page shell flex-1" id="app-page-layout">
           <div className="layout">
             <Sidebar
-              isAdmin={currentUser?.role === 'admin'}
+              currentUser={currentUser}
               activeSection={activeSection}
               onNavigate={handleNavigate}
               onLogout={handleLogout}
+              onOpenEarnStars={() => setIsStarVideoOpen(true)}
             />
 
             <div className="content" id="app-workspace-content">
@@ -187,15 +238,24 @@ export default function App() {
                   </p>
                 </div>
 
-                {!currentUser && (
+                {!currentUser ? (
                   <button
                     type="button"
                     onClick={() => setIsLoginOpen(true)}
-                    className="btn dark text-xs"
+                    className="btn dark text-xs cursor-pointer"
                   >
-                    登入以同步記錄
+                    EMAIL 登入以同步記錄
                   </button>
-                )}
+                ) : normRole === 'free' ? (
+                  <button
+                    type="button"
+                    onClick={() => setIsStarVideoOpen(true)}
+                    className="btn text-xs px-3.5 py-2 flex items-center gap-1.5 cursor-pointer shadow-sm"
+                  >
+                    <Star className="w-3.5 h-3.5 fill-amber-300 text-amber-300" />
+                    <span>隨機彈出片儲星星</span>
+                  </button>
+                ) : null}
               </div>
 
               <DreamWorkspace
@@ -205,7 +265,10 @@ export default function App() {
                 demo={!process.env.GEMINI_API_KEY}
                 prefilledDream={prefilledDream}
                 initialTab={activeSection === 'patterns' ? 'history' : activeSection}
+                currentUser={currentUser}
                 onDreamAdded={handleDreamAdded}
+                onUpdateUserStars={handleUpdateUserStars}
+                onOpenEarnStars={() => setIsStarVideoOpen(true)}
               />
             </div>
           </div>
@@ -216,30 +279,38 @@ export default function App() {
         <main className="page shell flex-1" id="admin-page-layout">
           <div className="layout">
             <Sidebar
-              isAdmin={true}
+              currentUser={currentUser}
               activeSection={activeSection}
               onNavigate={handleNavigate}
               onLogout={handleLogout}
+              onOpenEarnStars={() => setIsStarVideoOpen(true)}
             />
 
             <div className="content" id="admin-console-content">
-              {currentUser?.role !== 'admin' ? (
-                <div className="card p-8 text-center space-y-4 max-w-lg mx-auto mt-10">
+              {!isManagement ? (
+                <div className="card p-8 text-center space-y-4 max-w-lg mx-auto mt-10" id="admin-access-denied-box">
                   <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 text-amber-400 mx-auto flex items-center justify-center">
                     <ShieldAlert className="w-6 h-6" />
                   </div>
                   <h2 className="text-xl font-bold text-white">需要管理員權限</h2>
                   <p className="text-sm text-muted">
-                    目前登入的帳戶 ({currentUser?.email || '訪客'}) 為一般會員權限。
-                    你可以在下方一鍵切換至預設管理員帳戶 (Boyman) 以管理 Book Brain 與 AI 模型參數。
+                    目前登入的帳戶 ({currentUser?.email || '未登入'}) 為「{getRoleDisplayName(normRole || 'free')}」權限。
+                    進入控制室管理 Book Brain 典籍與 AI 模型參數需管理員或高級管理員權限。
                   </p>
-                  <div className="pt-2 flex justify-center gap-3">
+                  <div className="pt-2 flex flex-wrap justify-center gap-2.5">
+                    <button
+                      type="button"
+                      onClick={() => handleSwitchUser(INITIAL_USERS[1])}
+                      className="btn text-xs"
+                    >
+                      切換為管理員 (Alex)
+                    </button>
                     <button
                       type="button"
                       onClick={() => handleSwitchUser(INITIAL_USERS[0])}
-                      className="btn text-xs"
+                      className="btn text-xs bg-[#aa9cff]/20 text-white border border-[#aa9cff]/40 hover:bg-[#aa9cff]/30"
                     >
-                      切換為管理員 (Boyman)
+                      切換為高級管理員 (Mystic)
                     </button>
                     <button
                       type="button"
@@ -256,7 +327,7 @@ export default function App() {
                     <div>
                       <span className="badge">
                         <BookOpen className="w-3 h-3 text-[#78e1b5]" />
-                        ADMIN CONTROL ROOM
+                        ADMIN CONTROL ROOM · 控制室
                       </span>
                       <h1 style={{ marginTop: 8 }}>DreamWisdom Control Room</h1>
                       <p className="muted text-sm">
@@ -270,7 +341,10 @@ export default function App() {
                     initialUsers={users}
                     initialSettings={settings}
                     currentUserId={currentUser.id}
+                    currentUserRole={currentUser.role}
                     onUpdateSettings={handleUpdateSettings}
+                    onUpdateUsers={handleUpdateUsers}
+                    onUpdateBooks={handleUpdateBooks}
                     onSwitchUser={handleSwitchUser}
                   />
                 </>
@@ -289,6 +363,14 @@ export default function App() {
           setCurrentView('app');
         }}
         availableUsers={users}
+      />
+
+      {/* Star Video Earning Modal (for General Members) */}
+      <StarVideoModal
+        isOpen={isStarVideoOpen}
+        onClose={() => setIsStarVideoOpen(false)}
+        onEarnStar={handleEarnStar}
+        currentStars={currentUser?.stars ?? 2}
       />
     </div>
   );

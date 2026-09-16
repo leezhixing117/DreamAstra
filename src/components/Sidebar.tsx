@@ -1,22 +1,76 @@
 import React from 'react';
-import { Sparkles, Dna, Compass, Key, Clock, Brain, Settings, ArrowLeft, LogOut } from 'lucide-react';
+import { User, normalizeRole, getRoleDisplayName } from '../types';
+import { Sparkles, Dna, Compass, Key, Clock, Brain, Settings, ArrowLeft, LogOut, Star, Crown, ShieldCheck } from 'lucide-react';
 
 interface SidebarProps {
-  isAdmin?: boolean;
+  currentUser?: User | null;
   activeSection?: 'workspace' | 'dna' | 'constellation' | 'mystery' | 'history' | 'patterns';
   onNavigate: (view: 'home' | 'app' | 'admin', section?: 'workspace' | 'dna' | 'constellation' | 'mystery' | 'history' | 'patterns') => void;
   onLogout: () => void;
+  onOpenEarnStars?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
-  isAdmin = false,
+  currentUser,
   activeSection = 'workspace',
   onNavigate,
   onLogout,
+  onOpenEarnStars,
 }) => {
+  const normRole = currentUser ? normalizeRole(currentUser.role) : null;
+  const isManagement = normRole === 'admin' || normRole === 'super_admin';
+
   return (
     <aside className="sidebar" id="app-sidebar">
       <div className="sidecard space-y-1">
+        {/* User Tier Status Badge on top of sidebar */}
+        {currentUser && (
+          <div className="p-2.5 mb-2 rounded-xl bg-white/[0.03] border border-white/10 text-xs">
+            <div className="flex items-center justify-between gap-1 mb-1">
+              <span className="font-bold text-white truncate max-w-[110px]">
+                {currentUser.display_name || currentUser.email.split('@')[0]}
+              </span>
+              <span
+                className={`text-[10px] px-1.5 py-0.5 rounded-full border ${
+                  normRole === 'super_admin'
+                    ? 'bg-[#aa9cff]/20 text-[#c3b9ff] border-[#aa9cff]/30 font-semibold'
+                    : normRole === 'admin'
+                    ? 'bg-[#71d9ff]/20 text-[#71d9ff] border-[#71d9ff]/30'
+                    : normRole === 'paid'
+                    ? 'bg-[#78e1b5]/20 text-[#78e1b5] border-[#78e1b5]/30'
+                    : 'bg-amber-400/15 text-amber-300 border-amber-400/30'
+                }`}
+              >
+                {getRoleDisplayName(normRole || 'free')}
+              </span>
+            </div>
+
+            {normRole === 'free' ? (
+              <div className="pt-1.5 border-t border-white/5 flex items-center justify-between">
+                <span className="text-[11px] text-amber-300 font-mono flex items-center gap-1">
+                  <Star className="w-3 h-3 fill-amber-300" />
+                  {currentUser.stars ?? 2} 顆星
+                </span>
+                {onOpenEarnStars && (
+                  <button
+                    type="button"
+                    onClick={onOpenEarnStars}
+                    className="text-[10px] text-[#ffd27a] hover:underline font-medium cursor-pointer"
+                  >
+                    睇片儲星 +
+                  </button>
+                )}
+              </div>
+            ) : (
+              <div className="text-[10px] text-[#8d97b5] pt-0.5">
+                {normRole === 'paid' && '✨ 全功能直接解鎖免儲星'}
+                {normRole === 'admin' && '⚙️ 全功能 + 內容管理'}
+                {normRole === 'super_admin' && '🛡️ 全功能 + 更改會員等級'}
+              </div>
+            )}
+          </div>
+        )}
+
         <button
           type="button"
           onClick={() => onNavigate('app', 'workspace')}
@@ -69,7 +123,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
         <div className="my-2 border-t border-white/10" />
 
-        {isAdmin && (
+        {isManagement && (
           <button
             type="button"
             onClick={() => onNavigate('admin')}
@@ -77,7 +131,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
             id="sidebar-item-admin"
           >
             <Settings className="w-4 h-4 text-[#78e1b5]" />
-            <span>⚙️ 管理員後台</span>
+            <span>⚙️ 控制室 ({normRole === 'super_admin' ? '高級' : '管理員'})</span>
           </button>
         )}
 

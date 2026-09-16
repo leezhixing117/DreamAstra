@@ -1,10 +1,32 @@
-export type UserRole = 'admin' | 'user';
+export type UserRole = 'free' | 'paid' | 'admin' | 'super_admin' | 'user';
+
+export function normalizeRole(role?: string): 'free' | 'paid' | 'admin' | 'super_admin' {
+  if (role === 'super_admin') return 'super_admin';
+  if (role === 'admin') return 'admin';
+  if (role === 'paid') return 'paid';
+  return 'free';
+}
+
+export function getRoleDisplayName(role?: string): string {
+  const norm = normalizeRole(role);
+  switch (norm) {
+    case 'super_admin':
+      return '高級管理員';
+    case 'admin':
+      return '管理員';
+    case 'paid':
+      return '付費會員';
+    case 'free':
+      return '一般會員';
+  }
+}
 
 export interface User {
   id: string;
   email: string;
   display_name?: string;
   role: UserRole;
+  stars?: number; // 一般會員透過隨機彈出片儲備之星星數
   created_at?: string;
 }
 
