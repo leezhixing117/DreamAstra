@@ -41,31 +41,37 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <span>DREAMWISDOM · 你的專屬夢境宇宙</span>
         </div>
 
-        {/* Primary Headline */}
-        <h1 id="hero-title" className="text-3xl sm:text-5xl md:text-6xl font-serif font-bold text-white tracking-tight max-w-4xl mx-auto leading-tight">
+        {/* Primary Headline - Strictly on ONE single line */}
+        <h1 id="hero-title" className="text-xl sm:text-3xl md:text-5xl lg:text-6xl font-serif font-bold text-white tracking-tight max-w-5xl mx-auto leading-tight whitespace-nowrap">
           每一個夢，都是潛意識留給你的信。
         </h1>
 
         {/* Subtitle */}
-        <p className="text-lg sm:text-2xl font-medium text-white/90 max-w-2xl mx-auto mt-4" id="hero-lead">
+        <p className="text-base sm:text-xl md:text-2xl font-medium text-white/90 max-w-2xl mx-auto mt-3" id="hero-lead">
           別人解讀你的夢。<b>我們記得你的夢。</b>
         </p>
 
-        {/* Small Fine Print with Therapeutic Option */}
-        <div className="flex items-center justify-center gap-1.5 text-xs sm:text-sm text-[#aab3d2] mt-3 max-w-xl mx-auto">
-          <span>免費探索你的夢境宇宙。若重複的夢持續帶來困擾，</span>
-          <button
-            type="button"
-            onClick={() => setIsTherapeuticOpen(true)}
-            className="text-[#78e1b5] hover:underline font-medium inline-flex items-center gap-0.5 cursor-pointer"
-          >
-            <Heart className="w-3.5 h-3.5 inline" />
-            我們提供後續療癒支援選項
-          </button>
+        {/* Small Fine Print Lines */}
+        <div className="mt-3.5 space-y-1.5 max-w-2xl mx-auto">
+          <div className="flex flex-wrap items-center justify-center gap-1.5 text-xs text-[#aab3d2]">
+            <span>免費探索你的夢境宇宙。若重複的夢持續帶來困擾，</span>
+            <button
+              type="button"
+              onClick={() => setIsTherapeuticOpen(true)}
+              className="text-[#78e1b5] hover:underline font-medium inline-flex items-center gap-0.5 cursor-pointer"
+            >
+              <Heart className="w-3.5 h-3.5 inline" />
+              我們提供後續療癒支援選項
+            </button>
+          </div>
+
+          <p className="text-xs text-[#8d97b5] leading-relaxed max-w-xl mx-auto">
+            DreamWisdom 唔係憑空估，而係先從 Book Brain 找出相關理論，再由 AI 結合你過往夢境，整理可能值得留意嘅訊息。
+          </p>
         </div>
 
         {/* Interactive Dream Input Box */}
-        <div className="dreambox max-w-3xl mx-auto mt-8 relative z-10 text-left" id="hero-dreambox">
+        <div className="dreambox max-w-3xl mx-auto mt-7 relative z-10 text-left" id="hero-dreambox">
           {isVoiceOpen ? (
             <VoiceRecorder
               onDreamRecorded={(organizedText) => {

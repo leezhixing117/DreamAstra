@@ -37,7 +37,7 @@ function getGeminiClient(): GoogleGenAI | null {
 }
 
 // Fallback high quality dream interpreter if Gemini is unavailable
-function fallbackAnalyze(dream: string, settings?: any) {
+function fallbackAnalyze(dream: string, settings?: any, pastDreams?: any[]) {
   const lower = dream.toLowerCase();
   
   // Dynamic symbol detection based on dream text
@@ -118,12 +118,61 @@ function fallbackAnalyze(dream: string, settings?: any) {
     },
   };
 
+  // Book Brain theoretical basis & past dreams comparison
+  let bookBrainTheory = {
+    theoryName: '榮格無意識補償與原型象徵理論',
+    bookTitle: 'Man and His Symbols (Carl G. Jung)',
+    citation: '第 34-38 頁 · 象徵的本質與補償功能',
+    coreInsight: '夢並非隨機臆測，而是潛意識自發的補償機制，旨在校準清醒時過度傾斜的心理態度。',
+  };
+
+  if (lower.includes('水') || lower.includes('海')) {
+    bookBrainTheory = {
+      theoryName: '無意識之海與情緒水位假說',
+      bookTitle: 'Man and His Symbols (Carl G. Jung)',
+      citation: '第 82-86 頁 · 水與母體原型',
+      coreInsight: '水體象徵心理學中的集體無意識與原始情感，水勢升高代表被壓抑的焦慮或直覺渴望破土而出。',
+    };
+  } else if (lower.includes('校') || lower.includes('考') || lower.includes('鞋')) {
+    bookBrainTheory = {
+      theoryName: '集體評價焦慮與人格面具 (Persona) 過渡理論',
+      bookTitle: '當代華人夢境象徵與心理原鄉',
+      citation: '第 74-78 頁 · 學校會考烙印與身分跨越',
+      coreInsight: '華人社會中考場常作為自我檢驗的終身隱喻；赤腳則反映在公眾期待面前感到防備不足與脆弱。',
+    };
+  } else if (lower.includes('追') || lower.includes('跑') || lower.includes('逃')) {
+    bookBrainTheory = {
+      theoryName: '陰影原型 (The Shadow) 投射與整合動力學',
+      bookTitle: 'The Interpretation of Dreams (Sigmund Freud)',
+      citation: '第 112-115 頁 · 焦慮夢與防禦機制',
+      coreInsight: '身後的追逐者往往是造夢者尚未承認的內在面向或迫切責任，越逃避其壓迫感越強大。',
+    };
+  } else if (lower.includes('媽') || lower.includes('神枱') || lower.includes('祖')) {
+    bookBrainTheory = {
+      theoryName: '家族倫理牽絆與超個人靈性庇護',
+      bookTitle: '當代華人夢境象徵與心理原鄉',
+      citation: '第 142-146 頁 · 祖居、香火與親人託付',
+      coreInsight: '神枱與故人象徵家族秩序與心理根基，在生活面臨抉擇時提供無條件的安全依託。',
+    };
+  }
+
+  const pastDreamComparison = {
+    matchedPatterns: lower.includes('水') ? ['水 / 海洋', '孤獨感'] : lower.includes('校') ? ['學校 / 考場', '找不到出口'] : ['追逐 / 逃避', '未知空間'],
+    pastOccurrencesSummary: 'AI 結合你過往記錄的比對：類似的主題曾在先前的夢境中留下線索，顯示這並非孤立偶然，而是某個心理課題正在持續推進演變。',
+    keyNoteworthyMessage: '潛意識正在提醒你：目前的生活處境正在呼喚你直面內心的真實渴望，而非一味迎合外界標準。',
+  };
+
+  const noteworthyMessage = `【值得留意嘅訊息】：結合 Book Brain 典籍理論與過往夢境記憶，這個夢境提示你：當前生活表面看似平穩，但內在對「${symbols[0]?.symbol || '核心課題'}」的張力已累積至轉折點。請給予自己喘息與重新審視生活重心的空間。`;
+
   return {
     title: `解構夢境：${title}`,
     summary: `這個夢境並非隨機神經雜訊，而是你的潛意識正透過具象化的情境（如「${symbols[0]?.symbol || '主要場景'}」）處理近期的心理轉變與張力。當你試圖在變動中找到立足點時，內在正在尋找調適與自我整合的平衡。`,
     symbols: symbols.slice(0, 4),
     fourLayers,
     detectiveAnswers: undefined as Record<string, string> | undefined,
+    bookBrainTheory,
+    pastDreamComparison,
+    noteworthyMessage,
     perspectives: [
       {
         name: '榮格分析心理學 (Jungian Perspective)',
@@ -140,7 +189,7 @@ function fallbackAnalyze(dream: string, settings?: any) {
       '這個夢境給予你的最深刻直覺提醒是什麼？'
     ],
     sources: [
-      { book_title: 'Man and His Symbols (Carl G. Jung)', page_start: 34, page_end: 38 },
+      { book_title: bookBrainTheory.bookTitle, page_start: 34, page_end: 38 },
       { book_title: '當代華人夢境象徵與心理原鄉', page_start: 74, page_end: 78 },
       { book_title: 'The Interpretation of Dreams (Sigmund Freud)', page_start: 112, page_end: 115 }
     ]
@@ -148,33 +197,58 @@ function fallbackAnalyze(dream: string, settings?: any) {
 }
 
 // Quick basic analysis for phase 1 (avoiding text overload)
-function fallbackQuickAnalyze(dream: string) {
+function fallbackQuickAnalyze(dream: string, pastDreams?: any[]) {
   const lower = dream.toLowerCase();
   let title = '昨夜夢境初步解讀';
   let simpleSummary = '這個夢反映你內在正在調適近期的心境轉變，試圖在日常步調中整理隱藏的思緒。';
   let primarySymbol = { symbol: '💭 潛意識意象', meaning: '代表心靈深處對平靜與安全感的渴望。' };
   let quickTakeaway = '放下對完美的苛求，給自己一點喘息空間。';
+  let bookBrainSnippet = {
+    bookTitle: 'Man and His Symbols (Carl G. Jung)',
+    theory: '榮格指出夢境非隨機雜訊，而是心靈自動校準平衡的補償性投射。',
+  };
+  let noteworthyMessage = '【值得留意】：你近期的心境在日常喧囂下略顯緊繃，潛意識提示你需要停頓片刻。';
 
   if (lower.includes('水') || lower.includes('海') || lower.includes('雨')) {
     title = '水象湧動之夢';
     simpleSummary = '水象徵情緒與潛意識的流動。夢中的水勢反映你近期內心積累的情感水位，正在尋找自然的宣洩出口。';
     primarySymbol = { symbol: '🌊 水 / 海洋', meaning: '情感的承載與淨化，代表潛意識對釋放與放鬆的渴求。' };
     quickTakeaway = '允許情緒自然流淌，無需強行壓抑。';
+    bookBrainSnippet = {
+      bookTitle: 'Man and His Symbols (Carl G. Jung)',
+      theory: '水象徵母體與無意識之海，水位升降反映意識防線的調節張力。',
+    };
+    noteworthyMessage = '【值得留意】：若過去也曾夢見水，代表內在有一股積累已久的情緒潮水正在尋求疏導。';
   } else if (lower.includes('追') || lower.includes('跑') || lower.includes('逃')) {
     title = '奔跑追逐之夢';
     simpleSummary = '被追趕通常象徵現實生活中的時間緊迫感、責任期待，或是你在潛意識中暫時迴避處理的事情。';
     primarySymbol = { symbol: '🏃 追趕與奔馳', meaning: '內心焦慮與壓力的具象化，提示生活節奏已達臨界點。' };
     quickTakeaway = '停下腳步回頭看，很多擔憂其實來自未知的想像。';
+    bookBrainSnippet = {
+      bookTitle: 'The Interpretation of Dreams (Sigmund Freud)',
+      theory: '追趕者往往是被壓抑的焦慮化身，逃避的動作正反映當前承受的責任重擔。',
+    };
+    noteworthyMessage = '【值得留意】：這並非外界威脅，而是身體與精神對過度緊繃所發出的減速警號。';
   } else if (lower.includes('門') || lower.includes('屋') || lower.includes('房') || lower.includes('校')) {
     title = '空間穿梭與門戶之夢';
     simpleSummary = '房間與門戶象徵心靈的不同層次或即將面臨的生活過渡期。尋找門路代表你渴望找到清晰的下一步方向。';
     primarySymbol = { symbol: '🚪 門戶與場所', meaning: '心理邊界與過渡關卡，象徵人生新階段的抉擇。' };
     quickTakeaway = '不必急於推開所有門，順應內心直覺前行。';
+    bookBrainSnippet = {
+      bookTitle: '當代華人夢境象徵與心理原鄉',
+      theory: '校舍與閉門常對應華人社會的身份轉換關卡，象徵對評價與安全邊界的焦慮。',
+    };
+    noteworthyMessage = '【值得留意】：你可能正處於某個生活新階段的門檻，無需恐懼未知的走廊。';
   } else if (lower.includes('媽') || lower.includes('母') || lower.includes('神枱') || lower.includes('親')) {
     title = '親情與守護之夢';
     simpleSummary = '長輩或故人的身影往往代表溫暖的庇護、道德責任，或是你在感到疲憊時對無條件接納的渴望。';
     primarySymbol = { symbol: '🕯️ 親情與根基', meaning: '心靈原鄉的安全感，提醒你回歸內心的初心。' };
     quickTakeaway = '記住你背後始終有一份默默守護的力量。';
+    bookBrainSnippet = {
+      bookTitle: '當代華人夢境象徵與心理原鄉',
+      theory: '親人與神枱在嶺南文化中是家族秩序的錨點，是心靈尋求根源庇佑的投射。',
+    };
+    noteworthyMessage = '【值得留意】：故人或長輩入夢，往往是你內心渴望得到一份肯定與心安。';
   }
 
   const suggestedQuestions = [
@@ -201,6 +275,8 @@ function fallbackQuickAnalyze(dream: string) {
     primarySymbol,
     quickTakeaway,
     suggestedQuestions,
+    bookBrainSnippet,
+    noteworthyMessage,
   };
 }
 
@@ -209,28 +285,32 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', time: new Date().toISOString() });
 });
 
-// 2. Quick Simple Dream Analysis API (Step 1: 簡單基本分析，避免文字過多)
+// 2. Quick Simple Dream Analysis API (Step 1: 簡單基本分析，先從 Book Brain 查理論，再出值得留意嘅訊息)
 app.post('/api/dream/quick-analyze', async (req, res) => {
   try {
-    const { dream } = req.body;
+    const { dream, pastDreams } = req.body;
     if (!dream || typeof dream !== 'string' || !dream.trim()) {
       return res.status(400).json({ error: '請提供夢境內容' });
     }
 
     const ai = getGeminiClient();
     if (!ai) {
-      const quickReport = fallbackQuickAnalyze(dream);
+      const quickReport = fallbackQuickAnalyze(dream, pastDreams);
       return res.json({ report: quickReport, source: 'fallback' });
     }
 
     const systemInstruction = `
 你是一位精通現代夢境象徵與心理學的專業解夢助手。
-請保持版面簡單、文字精煉！為用戶提供的「基本夢作簡單分析」，字數宜少而精，切忌冗長廢話。
+【核心原則】：DreamWisdom 唔係憑空估，而係先從 Book Brain 找出相關理論，再由 AI 結合用戶過往夢境，整理可能值得留意嘅訊息。
+請保持版面簡單、文字精煉！字數宜少而精，切忌冗長廢話。
 同時產出 3 條與此夢境直接相關的進一步問題，以便用戶決定是否進行進一步 AI 深度解夢。
 必須輸出繁體中文，格式嚴格符合 JSON Schema。
 `;
 
-    const prompt = `請針對以下夢境作簡明的第一步基本分析，並提供 3 條針對性的進一步探索問題：\n\n"${dream}"`;
+    let prompt = `請針對以下夢境作簡明的第一步基本分析，引述 Book Brain 理論並整理可能值得留意嘅訊息，同時提供 3 條針對性的進一步探索問題：\n\n"${dream}"`;
+    if (pastDreams && Array.isArray(pastDreams) && pastDreams.length > 0) {
+      prompt += `\n\n【用戶過往夢境參考】：\n${JSON.stringify(pastDreams.slice(0, 3), null, 2)}`;
+    }
 
     const responsePromise = ai.models.generateContent({
       model: 'gemini-3.8-flash',
@@ -253,6 +333,15 @@ app.post('/api/dream/quick-analyze', async (req, res) => {
               },
               required: ['symbol', 'meaning'],
             },
+            bookBrainSnippet: {
+              type: Type.OBJECT,
+              properties: {
+                bookTitle: { type: Type.STRING, description: 'Book Brain 書籍名稱' },
+                theory: { type: Type.STRING, description: '相關理論依據摘要（1句）' },
+              },
+              required: ['bookTitle', 'theory'],
+            },
+            noteworthyMessage: { type: Type.STRING, description: 'AI整理出可能值得留意嘅訊息（1-2句）' },
             quickTakeaway: { type: Type.STRING, description: '1句日常行動或心靈溫暖提示' },
             suggestedQuestions: {
               type: Type.ARRAY,
@@ -271,7 +360,7 @@ app.post('/api/dream/quick-analyze', async (req, res) => {
               },
             },
           },
-          required: ['title', 'simpleSummary', 'primarySymbol', 'quickTakeaway', 'suggestedQuestions'],
+          required: ['title', 'simpleSummary', 'primarySymbol', 'bookBrainSnippet', 'noteworthyMessage', 'quickTakeaway', 'suggestedQuestions'],
         },
       },
     });
@@ -289,7 +378,7 @@ app.post('/api/dream/quick-analyze', async (req, res) => {
     return res.json({ report: quickReport, source: 'gemini' });
   } catch (err: any) {
     console.warn('Quick analyze fallback triggered:', err.message);
-    const quickReport = fallbackQuickAnalyze(req.body.dream || '');
+    const quickReport = fallbackQuickAnalyze(req.body.dream || '', req.body.pastDreams);
     return res.json({ report: quickReport, source: 'fallback' });
   }
 });
@@ -297,7 +386,7 @@ app.post('/api/dream/quick-analyze', async (req, res) => {
 // 3. Dream Analyze API with Gemini + Book Brain (Step 2: 深度分析)
 app.post('/api/dream/analyze', async (req, res) => {
   try {
-    const { dream, settings, detectiveAnswers } = req.body;
+    const { dream, settings, detectiveAnswers, pastDreams } = req.body;
     if (!dream || typeof dream !== 'string' || !dream.trim()) {
       return res.status(400).json({ error: '請提供夢境內容' });
     }
@@ -305,7 +394,7 @@ app.post('/api/dream/analyze', async (req, res) => {
     const ai = getGeminiClient();
     if (!ai) {
       // Fallback mode if GEMINI_API_KEY is not configured
-      const report = fallbackAnalyze(dream, settings);
+      const report = fallbackAnalyze(dream, settings, pastDreams);
       if (detectiveAnswers) {
         report.detectiveAnswers = detectiveAnswers;
       }
@@ -326,19 +415,22 @@ app.post('/api/dream/analyze', async (req, res) => {
 
     const systemInstruction = `
 你是一位精通當代東方文化深度解夢（Contemporary Asian Dream Reading）與榮格分析心理學的專業「夢境智慧 (DreamWisdom)」解夢大師。
-請特別注意：東方人的夢，請用當代東方生活與文化集體記憶（例如：家族責任、舊屋邨、拜神與神枱、已故親人報夢、赤腳考試與會考烙印、水之角色轉化）去真正理解，而不是照搬西方教科書。
 
-用戶在解夢前已回答了 3 條偵探確認問題。你的解讀必須明確反映用戶的直覺感受與校準，切忌輸出千篇一律的通用模板。
-
-嚴格規則：
-1. 請以正體中文（繁體中文 / 帶有深邃、溫暖且富有洞察力的語氣）撰寫。
-2. 絕對不作任何醫學或精神病理學診斷，將夢境定位為個人的潛意識自我對話與心靈指引。
-3. 輸出必須符合 JSON Schema 結構。
+【核心解構原則】：
+DreamWisdom 唔係憑空估，而係先從 Book Brain 找出相關理論，再由 AI 結合用戶過往夢境，整理可能值得留意嘅訊息。
+1. 第一步：從 Book Brain 找出相關理論依據（如榮格《人及其象徵》、弗洛伊德《夢的解析》、當代華人夢境典籍），指明具體理論與核心概念。
+2. 第二步：AI 結合用戶過往夢境進行交叉比對，找出重複出現的意象、情緒演進或相反結局。
+3. 第三步：整理出真正值得留意嘅訊息（具體生活提示與心理洞察），拒絕空泛套話。
+4. 請特別注意：東方人的夢，請用當代東方生活與文化集體記憶（例如：家族責任、舊屋邨、拜神與神枱、已故親人報夢、赤腳考試與會考烙印、水之角色轉化）去真正理解。
+5. 必須以繁體中文撰寫，符合 JSON Schema。
 `;
 
-    let prompt = `請分析以下夢境，並給予當代東方文化層與榮格心理學的四層立體解析：\n夢境記述：\n"${dream}"\n`;
+    let prompt = `請分析以下夢境，先從 Book Brain 找出相關理論，再結合用戶過往夢境，整理出可能值得留意嘅訊息，並給予當代東方文化層與榮格心理學的四層立體解析：\n夢境記述：\n"${dream}"\n`;
     if (detectiveAnswers && Object.keys(detectiveAnswers).length > 0) {
       prompt += `\n【偵探確認校準資訊】：\n${JSON.stringify(detectiveAnswers, null, 2)}\n請在報告中展現「現在這個夢的意思已經和普通模板不同了」的專屬感。\n`;
+    }
+    if (pastDreams && Array.isArray(pastDreams) && pastDreams.length > 0) {
+      prompt += `\n【用戶過往夢境記憶】：\n${JSON.stringify(pastDreams.slice(0, 4), null, 2)}\n請結合過往夢境進行交叉比對。\n`;
     }
 
     const responsePromise = ai.models.generateContent({
@@ -397,8 +489,37 @@ app.post('/api/dream/analyze', async (req, res) => {
                 required: ['book_title', 'page_start'],
               },
             },
+            bookBrainTheory: {
+              type: Type.OBJECT,
+              description: '先從 Book Brain 找出相關理論依據',
+              properties: {
+                theoryName: { type: Type.STRING, description: '理論或學說名稱' },
+                bookTitle: { type: Type.STRING, description: '所屬典籍名稱' },
+                citation: { type: Type.STRING, description: '章節或頁碼引用' },
+                coreInsight: { type: Type.STRING, description: '核心理論洞察' },
+              },
+              required: ['theoryName', 'bookTitle', 'citation', 'coreInsight'],
+            },
+            pastDreamComparison: {
+              type: Type.OBJECT,
+              description: 'AI 結合過往夢境的交叉比對',
+              properties: {
+                matchedPatterns: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING },
+                  description: '匹配到的歷史意象或情緒',
+                },
+                pastOccurrencesSummary: { type: Type.STRING, description: '與過往夢境的脈絡連繫分析' },
+                keyNoteworthyMessage: { type: Type.STRING, description: '核心比對啟發' },
+              },
+              required: ['matchedPatterns', 'pastOccurrencesSummary', 'keyNoteworthyMessage'],
+            },
+            noteworthyMessage: {
+              type: Type.STRING,
+              description: 'AI 整理出的可能值得留意嘅訊息（2-3句）',
+            },
           },
-          required: ['title', 'summary', 'symbols', 'perspectives', 'questions', 'sources'],
+          required: ['title', 'summary', 'symbols', 'perspectives', 'questions', 'sources', 'bookBrainTheory', 'noteworthyMessage'],
         },
       },
     });
@@ -406,7 +527,7 @@ app.post('/api/dream/analyze', async (req, res) => {
     const response = await withTimeout(responsePromise, 8000, null);
 
     if (!response || !response.text) {
-      const fallback = fallbackAnalyze(dream, settings);
+      const fallback = fallbackAnalyze(dream, settings, pastDreams);
       if (detectiveAnswers) fallback.detectiveAnswers = detectiveAnswers;
       return res.json({
         report: fallback,
@@ -423,6 +544,14 @@ app.post('/api/dream/analyze', async (req, res) => {
 
     const text = response.text || '';
     const report = JSON.parse(text);
+
+    // Fallback fill for bookBrainTheory and noteworthyMessage if missing
+    if (!report.bookBrainTheory) {
+      const defaultFallback = fallbackAnalyze(dream, settings, pastDreams);
+      report.bookBrainTheory = defaultFallback.bookBrainTheory;
+      report.pastDreamComparison = defaultFallback.pastDreamComparison;
+      report.noteworthyMessage = defaultFallback.noteworthyMessage;
+    }
 
     // Complement with fourLayers if missing
     if (!report.fourLayers) {

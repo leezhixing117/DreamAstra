@@ -1,6 +1,6 @@
 import React from 'react';
 import { DreamEntry } from '../types';
-import { X, Calendar, BookOpen, HelpCircle, Check, Copy, Trash2, Sparkles, Compass, Dna, Layers, ShieldCheck, Heart } from 'lucide-react';
+import { X, Calendar, BookOpen, HelpCircle, Check, Copy, Trash2, Sparkles, Compass, Dna, Layers, ShieldCheck, Heart, Clock } from 'lucide-react';
 
 interface ReportDetailModalProps {
   entry: DreamEntry | null;
@@ -126,6 +126,75 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
           <b className="text-white block mb-1">潛意識核心信號：</b>
           {report.summary}
         </div>
+
+        {/* Book Brain Theory & Past Dream Comparison Grounding */}
+        {(report.bookBrainTheory || report.pastDreamComparison || report.noteworthyMessage) && (
+          <div className="space-y-3 my-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              {report.bookBrainTheory && (
+                <div className="p-4 rounded-2xl bg-[#71d9ff]/5 border border-[#71d9ff]/25 space-y-1.5 text-left">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <BookOpen className="w-4 h-4 text-[#71d9ff]" />
+                      <span className="text-xs font-bold text-[#71d9ff]">Book Brain 典籍理論依據</span>
+                    </div>
+                    <span className="text-[10px] font-mono text-[#aab3d2] bg-white/5 px-2 py-0.5 rounded">
+                      {report.bookBrainTheory.citation}
+                    </span>
+                  </div>
+                  <div className="text-xs font-semibold text-white">
+                    {report.bookBrainTheory.theoryName}
+                    <span className="text-[#aab3d2] font-normal block text-[11px] mt-0.5">
+                      《{report.bookBrainTheory.bookTitle}》
+                    </span>
+                  </div>
+                  <p className="text-xs text-[#cbd2ef] leading-relaxed">
+                    {report.bookBrainTheory.coreInsight}
+                  </p>
+                </div>
+              )}
+
+              {report.pastDreamComparison && (
+                <div className="p-4 rounded-2xl bg-[#aa9cff]/10 border border-[#aa9cff]/25 space-y-1.5 text-left">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5">
+                      <Clock className="w-4 h-4 text-[#aa9cff]" />
+                      <span className="text-xs font-bold text-[#c3b9ff]">結合過往夢境交叉比對</span>
+                    </div>
+                    <span className="text-[10px] text-[#78e1b5] font-mono bg-[#78e1b5]/10 px-2 py-0.5 rounded">
+                      記憶連繫
+                    </span>
+                  </div>
+                  {report.pastDreamComparison.matchedPatterns?.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-[10px] text-[#8d97b5]">吻合意象：</span>
+                      {report.pastDreamComparison.matchedPatterns.map((pat, idx) => (
+                        <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-white font-mono">
+                          {pat}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-[#cbd2ef] leading-relaxed">
+                    {report.pastDreamComparison.pastOccurrencesSummary}
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {report.noteworthyMessage && (
+              <div className="p-4 rounded-2xl bg-[#78e1b5]/10 border border-[#78e1b5]/30 flex items-start gap-3 text-left">
+                <div className="w-7 h-7 rounded-lg bg-[#78e1b5]/20 border border-[#78e1b5]/40 flex items-center justify-center text-[#78e1b5] shrink-0 mt-0.5">
+                  <Sparkles className="w-4 h-4" />
+                </div>
+                <div className="text-xs sm:text-sm text-[#e1e5f8] leading-relaxed">
+                  <b className="text-[#78e1b5] block mb-0.5">可能值得留意嘅訊息：</b>
+                  {report.noteworthyMessage}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* FOUR-LAYER CONTEMPORARY ASIAN READING */}
         {report.fourLayers ? (

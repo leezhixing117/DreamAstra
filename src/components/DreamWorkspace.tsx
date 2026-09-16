@@ -90,11 +90,20 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
     setIsQuickAnalyzing(true);
     setActiveReport(null);
 
+    const pastDreams = history.slice(0, 3).map((h) => ({
+      title: h.title,
+      text: h.dream_text,
+      date: h.created_at,
+    }));
+
     try {
       const response = await fetch('/api/dream/quick-analyze', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ dream: dream.trim() }),
+        body: JSON.stringify({
+          dream: dream.trim(),
+          pastDreams,
+        }),
       });
 
       if (!response.ok) {
@@ -131,6 +140,12 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
     setIsDeepAnalyzing(true);
     setErrorNotice(null);
 
+    const pastDreams = history.slice(0, 4).map((h) => ({
+      title: h.title,
+      text: h.dream_text,
+      date: h.created_at,
+    }));
+
     try {
       const response = await fetch('/api/dream/analyze', {
         method: 'POST',
@@ -139,6 +154,7 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
           dream: dream.trim(),
           settings,
           detectiveAnswers,
+          pastDreams,
         }),
       });
 
@@ -461,6 +477,39 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                 </div>
               </div>
 
+              {/* Book Brain Snippet & Noteworthy Message for Quick Analysis */}
+              {(quickReport.bookBrainSnippet || quickReport.noteworthyMessage) && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                  {quickReport.bookBrainSnippet && (
+                    <div className="p-3.5 rounded-2xl bg-[#71d9ff]/5 border border-[#71d9ff]/20 text-xs flex items-start gap-2.5">
+                      <BookOpen className="w-4 h-4 text-[#71d9ff] shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-[#71d9ff] font-bold block mb-0.5">
+                          Book Brain 典籍溯源 · {quickReport.bookBrainSnippet.bookTitle}
+                        </span>
+                        <p className="text-[#c8d0ec] leading-relaxed text-[11px]">
+                          {quickReport.bookBrainSnippet.theory}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  {quickReport.noteworthyMessage && (
+                    <div className="p-3.5 rounded-2xl bg-[#aa9cff]/10 border border-[#aa9cff]/25 text-xs flex items-start gap-2.5">
+                      <Sparkles className="w-4 h-4 text-[#aa9cff] shrink-0 mt-0.5" />
+                      <div>
+                        <span className="text-[#c3b9ff] font-bold block mb-0.5">
+                          可能值得留意嘅訊息
+                        </span>
+                        <p className="text-[#e1e5f8] leading-relaxed text-[11px]">
+                          {quickReport.noteworthyMessage}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* STEP 2 INVITATION: 需要進一步 AI 解夢才出 3 條進一步問題 */}
               <div className="mt-4 pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#aa9cff]/5 p-4 rounded-2xl border border-[#aa9cff]/20">
                 <div>
@@ -528,6 +577,72 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                   {activeReport.summary}
                 </div>
               </div>
+
+              {/* Book Brain Theory & Past Dream Comparison Grounding Section */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
+                {activeReport.bookBrainTheory && (
+                  <div className="p-4 rounded-2xl bg-[#71d9ff]/5 border border-[#71d9ff]/25 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <BookOpen className="w-4 h-4 text-[#71d9ff]" />
+                        <span className="text-xs font-bold text-[#71d9ff]">Book Brain 典籍理論依據</span>
+                      </div>
+                      <span className="text-[10px] font-mono text-[#aab3d2] bg-white/5 px-2 py-0.5 rounded">
+                        {activeReport.bookBrainTheory.citation}
+                      </span>
+                    </div>
+                    <div className="text-xs font-semibold text-white">
+                      {activeReport.bookBrainTheory.theoryName}
+                      <span className="text-[#aab3d2] font-normal block text-[11px] mt-0.5">
+                        《{activeReport.bookBrainTheory.bookTitle}》
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#cbd2ef] leading-relaxed">
+                      {activeReport.bookBrainTheory.coreInsight}
+                    </p>
+                  </div>
+                )}
+
+                {activeReport.pastDreamComparison && (
+                  <div className="p-4 rounded-2xl bg-[#aa9cff]/10 border border-[#aa9cff]/25 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <Clock className="w-4 h-4 text-[#aa9cff]" />
+                        <span className="text-xs font-bold text-[#c3b9ff]">結合過往夢境交叉比對</span>
+                      </div>
+                      <span className="text-[10px] text-[#78e1b5] font-mono bg-[#78e1b5]/10 px-2 py-0.5 rounded">
+                        記憶連繫
+                      </span>
+                    </div>
+                    {activeReport.pastDreamComparison.matchedPatterns?.length > 0 && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[10px] text-[#8d97b5]">比對吻合意象：</span>
+                        {activeReport.pastDreamComparison.matchedPatterns.map((pat, idx) => (
+                          <span key={idx} className="text-[10px] px-1.5 py-0.5 rounded bg-white/10 text-white font-mono">
+                            {pat}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-xs text-[#cbd2ef] leading-relaxed">
+                      {activeReport.pastDreamComparison.pastOccurrencesSummary}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {/* Noteworthy Message Banner */}
+              {activeReport.noteworthyMessage && (
+                <div className="p-4 rounded-2xl bg-gradient-to-r from-[#78e1b5]/15 via-[#78e1b5]/5 to-transparent border border-[#78e1b5]/30 flex items-start gap-3">
+                  <div className="w-7 h-7 rounded-lg bg-[#78e1b5]/20 border border-[#78e1b5]/40 flex items-center justify-center text-[#78e1b5] shrink-0 mt-0.5">
+                    <Sparkles className="w-4 h-4" />
+                  </div>
+                  <div className="text-xs sm:text-sm text-[#e1e5f8] leading-relaxed">
+                    <b className="text-[#78e1b5] block mb-0.5">可能值得留意嘅訊息：</b>
+                    {activeReport.noteworthyMessage}
+                  </div>
+                </div>
+              )}
 
               {/* Four Layers Highlight */}
               {activeReport.fourLayers && (

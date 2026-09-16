@@ -32,6 +32,19 @@ export interface DetectiveQuestion {
   selectedAnswer?: string;
 }
 
+export interface BookBrainTheory {
+  theoryName: string;
+  bookTitle: string;
+  citation: string;
+  coreInsight: string;
+}
+
+export interface PastDreamComparison {
+  matchedPatterns: string[];
+  pastOccurrencesSummary: string;
+  keyNoteworthyMessage: string;
+}
+
 export interface QuickAnalysis {
   title: string;
   simpleSummary: string;
@@ -41,6 +54,11 @@ export interface QuickAnalysis {
   };
   quickTakeaway: string;
   suggestedQuestions: DetectiveQuestion[];
+  bookBrainSnippet?: {
+    bookTitle: string;
+    theory: string;
+  };
+  noteworthyMessage?: string;
 }
 
 export interface FourLayerReading {
@@ -73,6 +91,9 @@ export interface DreamReport {
   sources: BookSource[];
   fourLayers?: FourLayerReading;
   detectiveAnswers?: Record<string, string>;
+  bookBrainTheory?: BookBrainTheory;
+  pastDreamComparison?: PastDreamComparison;
+  noteworthyMessage?: string;
   dnaContribution?: {
     dominantSymbol: string;
     dominantEmotion: string;
