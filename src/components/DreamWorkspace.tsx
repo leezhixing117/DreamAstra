@@ -7,6 +7,7 @@ import { DetectiveInquiryModal } from './DetectiveInquiryModal';
 import { DreamDnaCard } from './DreamDnaCard';
 import { DreamConstellationView } from './DreamConstellationView';
 import { ThirtyNightsMysteryView } from './ThirtyNightsMysteryView';
+import { DreamJournalManager } from './DreamJournalManager';
 import { TherapeuticSupportModal } from './TherapeuticSupportModal';
 import {
   Sparkles,
@@ -275,8 +276,38 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
     }
   }
 
-  const handleDeleteHistory = (id: string) => {
+  const handleDeleteHistory = async (id: string) => {
     setHistory((prev) => prev.filter((item) => item.id !== id));
+    try {
+      await fetch(`/api/dreams/${id}`, { method: 'DELETE' });
+    } catch (e) {
+      console.warn('Failed to delete dream from backend db', e);
+    }
+  };
+
+  const handleUpdateEntryTags = async (id: string, newTags: string[]) => {
+    setHistory((prev) =>
+      prev.map((item) => (item.id === id ? { ...item, tags: newTags } : item))
+    );
+    const target = history.find((h) => h.id === id);
+    if (target) {
+      try {
+        await fetch('/api/dreams', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            id: target.id,
+            title: target.title,
+            dream_text: target.dream_text,
+            report_json: target.report_json,
+            tags: newTags,
+            rawCantoneseTranscription: target.rawCantoneseTranscription,
+          }),
+        });
+      } catch (e) {
+        console.warn('Failed to update tags in backend db', e);
+      }
+    }
   };
 
   return (
@@ -473,7 +504,7 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
 
             {isVoiceOpen ? (
               <VoiceRecorder
-                onDreamRecorded={(text) => {
+                onDreamRecorded={(text, rawCantonese) => {
                   setDream(text);
                   setIsVoiceOpen(false);
                 }}
@@ -484,12 +515,38 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                 <textarea
                   value={dream}
                   onChange={(e) => setDream(e.target.value)}
-                  placeholder="寫低你記得嘅夢境……醒來時看見甚麼？心情如何？"
-                  rows={3}
+                  placeholder="寫低你記得嘅夢境……醒來時看見甚麼？心情如何？（可直接打字或使用右上角廣東話語音輸入）"
+                  rows={4}
+                  className="w-full text-base sm:text-sm leading-relaxed min-h-[130px]"
                   id="workspace-dream-textarea"
                 />
 
+                {/* Structured Prompting Guide Chips for Waking Memory */}
                 <div className="flex flex-wrap items-center gap-1.5 mt-2.5 pt-2.5 border-t border-white/5">
+                  <span className="text-[11px] text-[#8d97b5]">記夢引導：</span>
+                  {[
+                    { label: '👥 有邊啲人物？', prompt: '【夢中人物】：' },
+                    { label: '📍 場景係邊度？', prompt: '【場景地點】：' },
+                    { label: '💭 感覺驚／開心／不安？', prompt: '【當時心情感覺】：' },
+                    { label: '🚪 有冇特定物件？', prompt: '【重要物件】：' },
+                  ].map((guide, idx) => (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => {
+                        setDream((prev) => {
+                          const trimmed = prev.trim();
+                          return trimmed ? `${trimmed}\n${guide.prompt}` : guide.prompt;
+                        });
+                      }}
+                      className="text-[11px] px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[#cbd2ef] hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                    >
+                      {guide.label}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-1.5 mt-2 pt-2 border-t border-white/5">
                   <span className="text-[11px] text-[#8d97b5]">範例：</span>
                   {samplePrompts.map((p, i) => (
                     <button
@@ -930,38 +987,12 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
             )}
           </section>
 
-          {/* History List */}
-          <section className="card p-5 rounded-2xl" id="history-section">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Clock className="w-3.5 h-3.5 text-[#ffd27a]" />
-                <h4 className="text-sm font-bold text-white">過往夢境日記</h4>
-              </div>
-              <span className="text-xs text-[#8d97b5] font-mono">{history.length} 篇</span>
-            </div>
-
-            <div className="space-y-2">
-              {history.map((h) => (
-                <div
-                  key={h.id}
-                  onClick={() => setSelectedEntry(h)}
-                  className="p-3.5 rounded-xl bg-white/[0.03] border border-white/10 hover:border-[#aa9cff]/40 transition-all cursor-pointer flex items-center justify-between gap-3"
-                >
-                  <div className="min-w-0">
-                    <div className="text-[10px] text-[#8d97b5] font-mono">
-                      {new Date(h.created_at).toLocaleDateString('zh-HK')}
-                    </div>
-                    <div className="text-xs font-bold text-white truncate">{h.title || '未命名夢境'}</div>
-                    <p className="text-[11px] text-[#aab3d2] truncate mt-0.5">
-                      {h.report_json?.summary || h.dream_text}
-                    </p>
-                  </div>
-
-                  <ChevronRight className="w-4 h-4 text-[#8d97b5] shrink-0" />
-                </div>
-              ))}
-            </div>
-          </section>
+          {/* Dream Journal Manager (Tags, Multi-field Search, PDF Export, Morning Reminder) */}
+          <DreamJournalManager
+            history={history}
+            onSelectEntry={(entry) => setSelectedEntry(entry)}
+            onUpdateEntryTags={handleUpdateEntryTags}
+          />
         </div>
       )}
 

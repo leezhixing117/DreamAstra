@@ -1,6 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { ConstellationNode, ConstellationLink, DreamEntry } from '../types';
-import { Sparkles, Compass, Layers, Info, Eye, ExternalLink, X } from 'lucide-react';
+import { Sparkles, Compass, Layers, Info, Eye, ExternalLink, X, Download, Share2, ArrowRight } from 'lucide-react';
 
 interface DreamConstellationViewProps {
   nodes: ConstellationNode[];
@@ -20,9 +20,39 @@ export const DreamConstellationView: React.FC<DreamConstellationViewProps> = ({
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>('star_3'); // default focus on Ocean
   const [activeSymbolFilter, setActiveSymbolFilter] = useState<string>(focusedSymbol || '海');
   const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null);
+  const [isExporting, setIsExporting] = useState(false);
+  const svgRef = useRef<SVGSVGElement | null>(null);
 
   const activeNode = nodes.find((n) => n.id === selectedNodeId);
   const activeDream = dreams.find((d) => d.id === activeNode?.dreamId);
+
+  // State transformation trajectories for recurring symbols
+  const stateTransformations = [
+    {
+      symbol: '水 / 海洋',
+      from: '洪水暴漲 (恐懼焦慮)',
+      to: '平靜海水 (放鬆接納)',
+      trajectory: '洪水 (恐懼) → 涉水渡河 (試煉) → 平靜海水 (放鬆)',
+      nodeId: 'star_3',
+      color: 'border-[#71d9ff]/40 bg-[#71d9ff]/10 text-[#71d9ff]',
+    },
+    {
+      symbol: '門 / 出口',
+      from: '鎖死的鐵門 (受困壓抑)',
+      to: '推開通往天台 (解脫希望)',
+      trajectory: '迷宮密閉 (困惑) → 密碼鎖 (試煉) → 迎光之門 (釋放)',
+      nodeId: 'star_1',
+      color: 'border-[#ffd27a]/40 bg-[#ffd27a]/10 text-[#ffd27a]',
+    },
+    {
+      symbol: '被追逐黑影',
+      from: '盲目逃命 (逃避自我)',
+      to: '轉身對視黑影 (整合陰影)',
+      trajectory: '狂奔逃離 (驚慌) → 躲入老宅 (喘息) → 直面陰影 (整合)',
+      nodeId: 'star_2',
+      color: 'border-rose-500/40 bg-rose-500/10 text-rose-300',
+    },
+  ];
 
   // Filter links related to selected or hovered node
   const activeLinks = links.filter(
@@ -46,6 +76,72 @@ export const DreamConstellationView: React.FC<DreamConstellationViewProps> = ({
     }
   };
 
+  // Export Constellation SVG to PNG Image
+  const handleExportConstellationImage = () => {
+    setIsExporting(true);
+    try {
+      const svg = svgRef.current;
+      if (!svg) return;
+
+      const svgData = new XMLSerializer().serializeToString(svg);
+      const canvas = document.createElement('canvas');
+      canvas.width = 1200;
+      canvas.height = 800;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+
+      // Draw starry galaxy dark background
+      const grad = ctx.createRadialGradient(600, 400, 50, 600, 400, 650);
+      grad.addColorStop(0, '#1d1e3d');
+      grad.addColorStop(0.6, '#090c1a');
+      grad.addColorStop(1, '#04060e');
+      ctx.fillStyle = grad;
+      ctx.fillRect(0, 0, 1200, 800);
+
+      // Add stars
+      for (let i = 0; i < 150; i++) {
+        const sx = Math.random() * 1200;
+        const sy = Math.random() * 800;
+        const sr = Math.random() * 1.5;
+        ctx.fillStyle = 'rgba(255, 255, 255, 0.7)';
+        ctx.beginPath();
+        ctx.arc(sx, sy, sr, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Add branding header
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 28px sans-serif';
+      ctx.fillText('DreamWisdom · DREAM CONSTELLATION™️ 夢境星圖', 40, 60);
+
+      ctx.fillStyle = '#aa9cff';
+      ctx.font = '16px sans-serif';
+      ctx.fillText('每一個夢，都是潛意識留給你的信 · 30 NIGHTS UNIVERSE', 40, 90);
+
+      // Embed SVG to canvas
+      const img = new Image();
+      const svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
+      const urlApi = window.URL || (window as any).webkitURL;
+      const blobURL = urlApi.createObjectURL(svgBlob);
+
+      img.onload = () => {
+        ctx.drawImage(img, 60, 120, 1080, 620);
+        urlApi.revokeObjectURL(blobURL);
+
+        // Download PNG
+        const link = document.createElement('a');
+        link.download = `dreamwisdom-constellation-${Date.now()}.png`;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+        setIsExporting(false);
+      };
+      img.src = blobURL;
+    } catch (e) {
+      console.error('Error exporting image:', e);
+      setIsExporting(false);
+    }
+  };
+
   return (
     <div className="card border-[#aa9cff]/30 bg-[#090c1a] p-6 sm:p-8 rounded-3xl relative overflow-hidden" id="dream-constellation-view">
       {/* Background Starry Galaxy */}
@@ -62,32 +158,75 @@ export const DreamConstellationView: React.FC<DreamConstellationViewProps> = ({
             夢境星圖 · 宇宙連線
           </h2>
           <p className="text-xs sm:text-sm text-[#aab3d2] mt-1 max-w-2xl leading-relaxed">
-            每粒星代表一個夢。星與星之間連起人物、場景、象徵與情緒。
-            點擊星辰或象徵（例如「海」），觀察它在 30 日內的心理角色演變。
+            每粒星代表一個夢。節點代表地點 / 人物 / 象徵，線代表引力關聯。
+            點擊星辰或變化標籤，觀察象徵物在 30 日內的心理角色演變。
           </p>
         </div>
 
-        {/* Quick Filter Buttons */}
-        <div className="flex flex-wrap gap-1.5">
-          {['全部星辰', '海', '舊居', '被追逐', '門', '母親'].map((sym) => (
+        <div className="flex items-center gap-2">
+          {/* Export Constellation as PNG */}
+          <button
+            type="button"
+            onClick={handleExportConstellationImage}
+            disabled={isExporting}
+            className="btn2 text-xs flex items-center gap-1.5 px-3.5 py-2 rounded-xl cursor-pointer"
+          >
+            <Download className="w-3.5 h-3.5 text-[#71d9ff]" />
+            <span>{isExporting ? '生成星圖圖片中...' : '匯出星圖圖片 (PNG)'}</span>
+          </button>
+        </div>
+      </div>
+
+      {/* State Change Transformation Badges */}
+      <div className="relative z-10 pt-4 space-y-2">
+        <div className="flex items-center justify-between text-xs text-[#8d97b5]">
+          <span className="flex items-center gap-1 text-white font-medium">
+            <Compass className="w-3.5 h-3.5 text-[#78e1b5]" />
+            心境轉變軌跡標籤 (State-Change Labels)：
+          </span>
+          <span>點擊快速高亮轉變節點</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+          {stateTransformations.map((st, i) => (
             <button
-              key={sym}
+              key={i}
               type="button"
-              onClick={() => handleSelectSymbolPill(sym === '全部星辰' ? '' : sym)}
-              className={`text-xs px-3 py-1.5 rounded-full border transition-all cursor-pointer ${
-                (sym === '全部星辰' && !activeSymbolFilter) || activeSymbolFilter === sym
-                  ? 'bg-[#aa9cff] text-white border-[#aa9cff] shadow-md shadow-[#aa9cff]/20 font-medium'
-                  : 'bg-white/5 border-white/10 text-[#aab3d2] hover:bg-white/10 hover:text-white'
-              }`}
+              onClick={() => setSelectedNodeId(st.nodeId)}
+              className={`p-3 rounded-2xl border text-left transition-all cursor-pointer hover:scale-[1.02] ${st.color}`}
             >
-              {sym}
+              <div className="flex items-center justify-between text-xs font-bold mb-1">
+                <span>{st.symbol}</span>
+                <span className="text-[10px] opacity-80">點擊聚焦</span>
+              </div>
+              <div className="text-[11px] leading-relaxed opacity-95">
+                {st.trajectory}
+              </div>
             </button>
           ))}
         </div>
       </div>
 
+      {/* Quick Filter Buttons */}
+      <div className="flex flex-wrap items-center gap-1.5 pt-3 relative z-10">
+        <span className="text-xs text-[#8d97b5] mr-1">象徵篩選：</span>
+        {['全部星辰', '海', '舊居', '被追逐', '門', '母親'].map((sym) => (
+          <button
+            key={sym}
+            type="button"
+            onClick={() => handleSelectSymbolPill(sym === '全部星辰' ? '' : sym)}
+            className={`text-xs px-3 py-1.5 rounded-full border transition-all cursor-pointer ${
+              (sym === '全部星辰' && !activeSymbolFilter) || activeSymbolFilter === sym
+                ? 'bg-[#aa9cff] text-white border-[#aa9cff] shadow-md shadow-[#aa9cff]/20 font-medium'
+                : 'bg-white/5 border-white/10 text-[#aab3d2] hover:bg-white/10 hover:text-white'
+            }`}
+          >
+            {sym}
+          </button>
+        ))}
+      </div>
+
       {/* Interactive Cosmos Canvas and Evolution Panel */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-6 relative z-10">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 mt-4 relative z-10">
         {/* SVG Constellation Map (8 Cols) */}
         <div className="lg:col-span-8 bg-black/40 border border-white/10 rounded-2xl p-4 sm:p-6 relative min-h-[420px] flex flex-col justify-between overflow-hidden">
           {/* Link Type Legend */}
@@ -109,7 +248,7 @@ export const DreamConstellationView: React.FC<DreamConstellationViewProps> = ({
 
           {/* SVG Canvas */}
           <div className="relative w-full h-[320px] sm:h-[360px] my-auto">
-            <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+            <svg ref={svgRef} className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
               <defs>
                 {/* Glow filter */}
                 <filter id="glow" x="-20%" y="-20%" width="140%" height="140%">

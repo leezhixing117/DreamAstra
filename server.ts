@@ -2,11 +2,27 @@ import express from 'express';
 import path from 'path';
 import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
 import dotenv from 'dotenv';
+import {
+  checkDatabaseHealth,
+  getUsers,
+  upsertUser,
+  updateUserStars,
+  getDreams,
+  saveDream,
+  deleteDream,
+  getDnaStats,
+  saveDnaStats,
+  getConstellationData,
+  saveConstellationData,
+  getMysteryJourney,
+  saveMysteryJourney,
+} from './server/db';
 
 dotenv.config();
 
 const app = express();
 const PORT = 3000;
+const serverStartTime = Date.now();
 
 app.use(express.json({ limit: '10mb' }));
 
@@ -280,9 +296,180 @@ function fallbackQuickAnalyze(dream: string, pastDreams?: any[]) {
   };
 }
 
-// 1. Health check
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', time: new Date().toISOString() });
+// 1. Health checks (validates database connection for Render / Cloud Run deployments)
+app.get(['/health', '/api/health'], async (req, res) => {
+  const dbHealth = await checkDatabaseHealth();
+  const uptimeSeconds = Math.floor((Date.now() - serverStartTime) / 1000);
+  
+  const payload = {
+    status: dbHealth.status,
+    uptime_seconds: uptimeSeconds,
+    database: {
+      engine: dbHealth.engine,
+      connected: dbHealth.connected,
+      latency_ms: dbHealth.latency_ms,
+      message: dbHealth.message,
+    },
+    service: 'DreamWisdom Backend API',
+    timestamp: new Date().toISOString(),
+  };
+
+  // If database explicitly errored when configured, return 503 for deployment rollback detection
+  if (dbHealth.status === 'error') {
+    return res.status(503).json(payload);
+  }
+
+  res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  return res.status(200).json(payload);
+});
+
+// Database API Routes: Dreams
+app.get('/api/dreams', async (req, res) => {
+  try {
+    const userId = req.query.userId as string | undefined;
+    const tag = req.query.tag as string | undefined;
+    const search = req.query.search as string | undefined;
+    let dreams = await getDreams(userId);
+
+    if (tag && tag !== 'all') {
+      dreams = dreams.filter((d: any) => d.tags && d.tags.includes(tag));
+    }
+    if (search && search.trim()) {
+      const q = search.toLowerCase().trim();
+      dreams = dreams.filter(
+        (d: any) =>
+          d.title?.toLowerCase().includes(q) ||
+          d.dream_text?.toLowerCase().includes(q) ||
+          d.report_json?.summary?.toLowerCase().includes(q)
+      );
+    }
+    res.json({ dreams });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to fetch dreams', details: err.message });
+  }
+});
+
+app.post('/api/dreams', async (req, res) => {
+  try {
+    const dreamData = req.body;
+    if (!dreamData || !dreamData.dream_text) {
+      return res.status(400).json({ error: '夢境內容不能為空' });
+    }
+    const saved = await saveDream(dreamData);
+    res.json({ success: true, dream: saved });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to save dream', details: err.message });
+  }
+});
+
+app.delete('/api/dreams/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    await deleteDream(id);
+    res.json({ success: true, id });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to delete dream', details: err.message });
+  }
+});
+
+// Database API Routes: DREAM DNA™️ Stats
+app.get('/api/dna', async (req, res) => {
+  try {
+    const userId = (req.query.userId as string) || 'user_mystic';
+    const dna = await getDnaStats(userId);
+    res.json({ dna });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to fetch DNA stats', details: err.message });
+  }
+});
+
+app.post('/api/dna', async (req, res) => {
+  try {
+    const userId = req.body.userId || 'user_mystic';
+    const dna = await saveDnaStats(userId, req.body.dna);
+    res.json({ success: true, dna });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to save DNA stats', details: err.message });
+  }
+});
+
+// Database API Routes: CONSTELLATION™️ Nodes & Links
+app.get('/api/constellation', async (req, res) => {
+  try {
+    const userId = (req.query.userId as string) || 'user_mystic';
+    const data = await getConstellationData(userId);
+    res.json(data);
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to fetch constellation', details: err.message });
+  }
+});
+
+app.post('/api/constellation', async (req, res) => {
+  try {
+    const userId = req.body.userId || 'user_mystic';
+    const data = await saveConstellationData(userId, {
+      nodes: req.body.nodes || [],
+      links: req.body.links || [],
+    });
+    res.json({ success: true, data });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to save constellation', details: err.message });
+  }
+});
+
+// Database API Routes: 30 NIGHTS MYSTERY™️ Journey
+app.get('/api/mystery', async (req, res) => {
+  try {
+    const userId = (req.query.userId as string) || 'user_mystic';
+    const journey = await getMysteryJourney(userId);
+    res.json({ journey });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to fetch mystery journey', details: err.message });
+  }
+});
+
+app.post('/api/mystery', async (req, res) => {
+  try {
+    const userId = req.body.userId || 'user_mystic';
+    const journey = await saveMysteryJourney(userId, req.body.journey);
+    res.json({ success: true, journey });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to save mystery journey', details: err.message });
+  }
+});
+
+// Database API Routes: Users & RBAC
+app.get('/api/users', async (req, res) => {
+  try {
+    const users = await getUsers();
+    res.json({ users });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to fetch users', details: err.message });
+  }
+});
+
+app.post('/api/users/sync', async (req, res) => {
+  try {
+    const user = req.body;
+    if (!user || !user.id || !user.email) {
+      return res.status(400).json({ error: 'Invalid user payload' });
+    }
+    const synced = await upsertUser(user);
+    res.json({ success: true, user: synced });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to sync user', details: err.message });
+  }
+});
+
+app.put('/api/users/:id/stars', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { stars } = req.body;
+    const updated = await updateUserStars(id, typeof stars === 'number' ? stars : 0);
+    res.json({ success: true, user: updated });
+  } catch (err: any) {
+    res.status(500).json({ error: 'Failed to update user stars', details: err.message });
+  }
 });
 
 // 2. Quick Simple Dream Analysis API (Step 1: 簡單基本分析，先從 Book Brain 查理論，再出值得留意嘅訊息)
@@ -693,8 +880,17 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
+    // CDN cache headers: Vite hashed assets are immutable for 1 year
+    app.use('/assets', express.static(path.join(distPath, 'assets'), {
+      maxAge: '1y',
+      immutable: true,
+    }));
+    // General static assets
+    app.use(express.static(distPath, {
+      maxAge: '1h',
+    }));
     app.get('*', (req, res) => {
+      res.setHeader('Cache-Control', 'public, max-age=0, must-revalidate');
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

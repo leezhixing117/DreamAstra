@@ -83,7 +83,62 @@ export default function App() {
     }
   });
 
-  // Save changes to localStorage
+  // Load data from Backend PostgreSQL Database on mount
+  useEffect(() => {
+    async function loadDataFromDb() {
+      try {
+        const dreamsRes = await fetch('/api/dreams');
+        if (dreamsRes.ok) {
+          const dreamsData = await dreamsRes.json();
+          if (Array.isArray(dreamsData.dreams) && dreamsData.dreams.length > 0) {
+            setHistory(dreamsData.dreams);
+          }
+        }
+      } catch (err) {
+        console.warn('Could not fetch dreams from db, using local fallback', err);
+      }
+
+      try {
+        const usersRes = await fetch('/api/users');
+        if (usersRes.ok) {
+          const usersData = await usersRes.json();
+          if (Array.isArray(usersData.users) && usersData.users.length > 0) {
+            setUsers(usersData.users);
+          }
+        }
+      } catch (err) {
+        console.warn('Could not fetch users from db', err);
+      }
+
+      try {
+        const booksRes = await fetch('/api/books');
+        if (booksRes.ok) {
+          const booksData = await booksRes.json();
+          if (Array.isArray(booksData.books) && booksData.books.length > 0) {
+            setBooks(booksData.books);
+          }
+        }
+      } catch (err) {
+        console.warn('Could not fetch books from db', err);
+      }
+
+      try {
+        const settingsRes = await fetch('/api/settings');
+        if (settingsRes.ok) {
+          const settingsData = await settingsRes.json();
+          if (settingsData.settings) {
+            setSettings(settingsData.settings);
+          }
+        }
+      } catch (err) {
+        console.warn('Could not fetch settings from db', err);
+      }
+    }
+
+    loadDataFromDb();
+  }, []);
+
+  // Save changes to localStorage as offline safety
   useEffect(() => {
     localStorage.setItem('dreamwisdom_users', JSON.stringify(users));
   }, [users]);
@@ -134,20 +189,55 @@ export default function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const handleDreamAdded = (entry: DreamEntry) => {
+  const handleDreamAdded = async (entry: DreamEntry) => {
     setHistory((prev) => [entry, ...prev]);
+    try {
+      await fetch('/api/dreams', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: entry.id,
+          title: entry.title,
+          dream_text: entry.dream_text,
+          report_json: entry.report_json,
+          tags: entry.tags || [],
+          rawCantoneseTranscription: entry.rawCantoneseTranscription,
+        }),
+      });
+    } catch (e) {
+      console.warn('Failed to sync new dream to Postgres', e);
+    }
   };
 
-  const handleUpdateSettings = (newSettings: EngineSettings) => {
+  const handleUpdateSettings = async (newSettings: EngineSettings) => {
     setSettings(newSettings);
+    try {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings: newSettings }),
+      });
+    } catch (e) {
+      console.warn('Failed to sync settings to db', e);
+    }
   };
 
-  const handleSwitchUser = (user: User) => {
+  const handleSwitchUser = async (user: User) => {
     setCurrentUser(user);
     setUsers((prev) => {
       const exists = prev.some((u) => u.id === user.id);
-      return exists ? prev : [user, ...prev];
+      return exists ? prev.map((u) => (u.id === user.id ? user : u)) : [user, ...prev];
     });
+
+    try {
+      await fetch('/api/users', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(user),
+      });
+    } catch (e) {
+      console.warn('Failed to sync user to db', e);
+    }
   };
 
   const handleUpdateUsers = (newUsers: User[]) => {
