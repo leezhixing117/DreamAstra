@@ -1,0 +1,6 @@
+{
+  "name": "DreamWisdom — 看懂你的夢",
+  "description": "Book-grounded AI dream reflection with long-term dream memory (Book Brain × AI × Dream Memory)",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
