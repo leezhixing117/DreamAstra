@@ -4,8 +4,8 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { User, BookBrainItem, EngineSettings, DreamEntry, normalizeRole, getRoleDisplayName } from './types';
-import { INITIAL_USERS, INITIAL_BOOKS, INITIAL_SETTINGS, INITIAL_DREAMS } from './data';
+import { User, BookBrainItem, EngineSettings, DreamEntry, AdVideoItem, normalizeRole, getRoleDisplayName } from './types';
+import { INITIAL_USERS, INITIAL_BOOKS, INITIAL_SETTINGS, INITIAL_DREAMS, INITIAL_AD_VIDEOS } from './data';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { HomeView } from './components/HomeView';
@@ -13,15 +13,42 @@ import { DreamWorkspace } from './components/DreamWorkspace';
 import { AdminConsole } from './components/AdminConsole';
 import { LoginModal } from './components/LoginModal';
 import { StarVideoModal } from './components/StarVideoModal';
-import { Sparkles, ShieldAlert, BookOpen, Star } from 'lucide-react';
+import { PricingView } from './components/PricingView';
+import { PrivacyView } from './components/PrivacyView';
+import { ProductStoreView } from './components/ProductStoreView';
+import { Footer } from './components/Footer';
+import { ProductItem } from './types';
+import { INITIAL_PRODUCTS } from './data/products';
+import { Sparkles, ShieldAlert, BookOpen, Star, Package, Tv } from 'lucide-react';
 
 export default function App() {
   // Load or initialize state from localStorage
-  const [currentView, setCurrentView] = useState<'home' | 'app' | 'admin'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'app' | 'pricing' | 'privacy' | 'store' | 'admin'>('home');
   const [activeSection, setActiveSection] = useState<'workspace' | 'dna' | 'constellation' | 'mystery' | 'history' | 'patterns'>('workspace');
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isStarVideoOpen, setIsStarVideoOpen] = useState(false);
   const [prefilledDream, setPrefilledDream] = useState('');
+  const [targetProductId, setTargetProductId] = useState<string | undefined>(undefined);
+
+  // Products catalog state
+  const [products, setProducts] = useState<ProductItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('dreamwisdom_products');
+      return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+    } catch {
+      return INITIAL_PRODUCTS;
+    }
+  });
+
+  // Advertisement & Sponsor Videos Catalog State
+  const [adVideos, setAdVideos] = useState<AdVideoItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('dreamwisdom_ad_videos');
+      return saved ? JSON.parse(saved) : INITIAL_AD_VIDEOS;
+    } catch {
+      return INITIAL_AD_VIDEOS;
+    }
+  });
 
   // Persistent user state
   const [users, setUsers] = useState<User[]>(() => {
@@ -163,8 +190,19 @@ export default function App() {
     localStorage.setItem('dreamwisdom_history', JSON.stringify(history));
   }, [history]);
 
+  useEffect(() => {
+    localStorage.setItem('dreamwisdom_products', JSON.stringify(products));
+  }, [products]);
+
+  useEffect(() => {
+    localStorage.setItem('dreamwisdom_ad_videos', JSON.stringify(adVideos));
+  }, [adVideos]);
+
   // Navigate handler
-  const handleNavigate = (view: 'home' | 'app' | 'admin', section?: 'workspace' | 'dna' | 'constellation' | 'mystery' | 'history' | 'patterns') => {
+  const handleNavigate = (
+    view: 'home' | 'app' | 'pricing' | 'privacy' | 'store' | 'admin',
+    section?: 'workspace' | 'dna' | 'constellation' | 'mystery' | 'history' | 'patterns'
+  ) => {
     setCurrentView(view);
     if (section) {
       setActiveSection(section);
@@ -270,6 +308,62 @@ export default function App() {
     setUsers((prev) => prev.map((u) => (u.id === currentUser.id ? updatedUser : u)));
   };
 
+  // Quota exchange with Star Coins (free users)
+  const handleExchangeQuota = (starsCost: number, quotaToAdd: number) => {
+    if (!currentUser) {
+      setIsLoginOpen(true);
+      return;
+    }
+    const currentStars = currentUser.stars ?? 2;
+    if (currentStars < starsCost) {
+      setIsStarVideoOpen(true);
+      return;
+    }
+    const currentQuota = currentUser.storage_quota || 3;
+    const newQuota = Math.min(10, currentQuota + quotaToAdd);
+    const newStars = currentStars - starsCost;
+
+    const updatedUser: User = {
+      ...currentUser,
+      stars: newStars,
+      storage_quota: newQuota,
+    };
+    setCurrentUser(updatedUser);
+    setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
+  };
+
+  // Upgrade to paid membership
+  const handleUpgradeToPaid = () => {
+    if (!currentUser) {
+      setIsLoginOpen(true);
+      return;
+    }
+    const updatedUser: User = {
+      ...currentUser,
+      role: 'paid',
+      storage_quota: 99999,
+    };
+    setCurrentUser(updatedUser);
+    setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
+  };
+
+  // Clear all dream records (Privacy right)
+  const handleClearAllDreams = () => {
+    setHistory([]);
+    localStorage.removeItem('dreamwisdom_history');
+  };
+
+  // Toggle local-only mode
+  const handleToggleLocalOnly = (localOnly: boolean) => {
+    if (!currentUser) return;
+    const updatedUser: User = {
+      ...currentUser,
+      privacy_local_only: localOnly,
+    };
+    setCurrentUser(updatedUser);
+    setUsers((prev) => prev.map((u) => (u.id === updatedUser.id ? updatedUser : u)));
+  };
+
   const handleLogout = () => {
     setCurrentUser(null);
     setCurrentView('home');
@@ -299,6 +393,43 @@ export default function App() {
             setCurrentView('app');
           }}
           onGoToAdmin={() => setCurrentView('admin')}
+          onGoToPricing={() => handleNavigate('pricing')}
+          onGoToPrivacy={() => handleNavigate('privacy')}
+        />
+      )}
+
+      {currentView === 'pricing' && (
+        <PricingView
+          currentUser={currentUser}
+          currentStoredDreamsCount={history.length}
+          onOpenEarnStars={() => setIsStarVideoOpen(true)}
+          onOpenLogin={() => setIsLoginOpen(true)}
+          onUpgradeToPaid={handleUpgradeToPaid}
+          onExchangeQuota={handleExchangeQuota}
+          onGoToWorkspace={() => handleNavigate('app', 'workspace')}
+        />
+      )}
+
+      {currentView === 'privacy' && (
+        <PrivacyView
+          currentUser={currentUser}
+          currentStoredDreamsCount={history.length}
+          onClearAllData={handleClearAllDreams}
+          onToggleLocalOnly={handleToggleLocalOnly}
+          onGoBack={() => handleNavigate('home')}
+        />
+      )}
+
+      {currentView === 'store' && (
+        <ProductStoreView
+          products={products}
+          currentUser={currentUser}
+          recommendedProductId={targetProductId}
+          currentDreamSummary={history[0]?.dream_text?.slice(0, 100)}
+          onOpenLogin={() => setIsLoginOpen(true)}
+          onOpenEarnStars={() => setIsStarVideoOpen(true)}
+          onUpdateUserStars={handleUpdateUserStars}
+          onNavigateToWorkspace={() => handleNavigate('app', 'workspace')}
         />
       )}
 
@@ -359,6 +490,11 @@ export default function App() {
                 onDreamAdded={handleDreamAdded}
                 onUpdateUserStars={handleUpdateUserStars}
                 onOpenEarnStars={() => setIsStarVideoOpen(true)}
+                onGoToPricing={() => handleNavigate('pricing')}
+                onGoToStore={(prodId) => {
+                  setTargetProductId(prodId);
+                  handleNavigate('store');
+                }}
               />
             </div>
           </div>
@@ -430,11 +566,15 @@ export default function App() {
                     initialBooks={books}
                     initialUsers={users}
                     initialSettings={settings}
+                    initialProducts={products}
+                    initialAdVideos={adVideos}
                     currentUserId={currentUser.id}
                     currentUserRole={currentUser.role}
                     onUpdateSettings={handleUpdateSettings}
                     onUpdateUsers={handleUpdateUsers}
                     onUpdateBooks={handleUpdateBooks}
+                    onUpdateProducts={(updated) => setProducts(updated)}
+                    onUpdateAdVideos={(updated) => setAdVideos(updated)}
                     onSwitchUser={handleSwitchUser}
                   />
                 </>
@@ -443,6 +583,9 @@ export default function App() {
           </div>
         </main>
       )}
+
+      {/* Global Site Footer */}
+      <Footer onNavigate={handleNavigate} />
 
       {/* Global Login / Switch Account Modal */}
       <LoginModal
@@ -461,6 +604,7 @@ export default function App() {
         onClose={() => setIsStarVideoOpen(false)}
         onEarnStar={handleEarnStar}
         currentStars={currentUser?.stars ?? 2}
+        adVideos={adVideos}
       />
     </div>
   );

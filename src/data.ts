@@ -1,4 +1,4 @@
-import { BookBrainItem, DreamEntry, EngineSettings, User, DreamDNA, ConstellationNode, ConstellationLink, ThirtyNightsJourney, DetectiveQuestion } from './types';
+import { BookBrainItem, DreamEntry, EngineSettings, User, DreamDNA, ConstellationNode, ConstellationLink, ThirtyNightsJourney, DetectiveQuestion, AdVideoItem } from './types';
 
 export const INITIAL_USERS: User[] = [
   {
@@ -755,10 +755,122 @@ export function generateDetectiveQuestions(dreamText: string): DetectiveQuestion
   ];
 }
 
+export const INITIAL_AD_VIDEOS: AdVideoItem[] = [
+  {
+    id: 'ad_alien_dream_truth',
+    title: '👽 星際對話 · 外星導師解密夢境的唯一真實',
+    advertiser: 'Intergalactic Consciousness Lab (星際意識研究所)',
+    tagline: '「你們人類以為清醒是真，我們外星人認為夢境才是唯一的真實。夢境是來自真實心靈的投射，它比你自認為的內心還要真實。」',
+    posterUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1200&auto=format&fit=crop',
+    durationSeconds: 15,
+    rewardStars: 1,
+    category: 'alien_philosophy',
+    bgGradient: 'from-[#0b051d] via-[#1a0c3b] to-[#04010a]',
+    accentColor: '#aa9cff',
+    isActive: true,
+    createdAt: '2026-09-17T08:00:00Z',
+    dialogueDialogue: [
+      {
+        speaker: '地球探求者',
+        text: '你們外星人對夢境是怎麼理解的？做夢才是真的？',
+      },
+      {
+        speaker: '外星導師',
+        text: '我們認為夢境是唯一的真實。夢境是來自真實心靈的投射，它比你自認為的內心還要真實。你們的意識被自我、被社會規則、被生存慾求層層過濾和編輯，而夢裡，這些過濾器都失效了。',
+      },
+      {
+        speaker: '地球探求者',
+        text: '那你們外星人還會做夢嗎？在夢裡可以清晰認識到自己在做夢嗎？',
+      },
+      {
+        speaker: '外星導師',
+        text: '我們會主動授權一部分意識讓它脫離過濾器進入野化狀態。直覺、情感、象徵超越邏輯的聯結，是你們遺忘了的頂級認知方式。屏幕前的你，可以開始記錄夢境了，歡迎你回來分享！',
+      },
+    ],
+  },
+  {
+    id: 'ad_pomelo_lingli',
+    title: '🌿 零離 · 廣東碌柚葉去霉開運香水 (贊助商)',
+    advertiser: '零離 LINGLI 廣東草本療癒研究所',
+    tagline: '「醒後一噴，驅除噩夢黏滯感。嶺南古法碌柚葉黃酮提取，重整磁場，迎納好運！」',
+    posterUrl: 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?q=80&w=1200&auto=format&fit=crop',
+    durationSeconds: 12,
+    rewardStars: 1,
+    category: 'brand_sponsor',
+    bgGradient: 'from-[#031c13] via-[#063321] to-[#010c08]',
+    accentColor: '#78e1b5',
+    isActive: true,
+    createdAt: '2026-09-17T08:05:00Z',
+    dialogueDialogue: [
+      {
+        speaker: '夢境守護者',
+        text: '成日發噩夢或者俾鬼壓，醒咗個人好沉好重？',
+      },
+      {
+        speaker: '零離香氛導師',
+        text: '廣東人自古以碌柚葉去霉轉運。零離提煉天然碌柚葉黃酮，一噴掃除負能量氣場，即刻回復清爽精神！',
+      },
+      {
+        speaker: '旁白',
+        text: '解夢選物店現已上架，支援星星幣折抵換購。',
+      },
+    ],
+  },
+  {
+    id: 'ad_deep_sleep_herbal',
+    title: '🌙 夢境深眠 · 普羅旺斯薰衣草與洋甘菊舒眠枕霧',
+    advertiser: 'Nocturne Botanical Lab',
+    tagline: '「讓潛意識在天然植物香氛中安歇，減少驚醒，每夜收穫平靜而清晰的好夢。」',
+    posterUrl: 'https://images.unsplash.com/photo-1528722828814-77b9b83aafb2?q=80&w=1200&auto=format&fit=crop',
+    durationSeconds: 10,
+    rewardStars: 1,
+    category: 'healing_sound',
+    bgGradient: 'from-[#0e0725] via-[#1a0f3d] to-[#070314]',
+    accentColor: '#71d9ff',
+    isActive: true,
+    createdAt: '2026-09-17T08:10:00Z',
+    dialogueDialogue: [
+      {
+        speaker: '催眠引導師',
+        text: '放鬆眉心，深深吸氣……感受薰衣草與岩蘭草將白天的喧囂溫柔包裹。',
+      },
+      {
+        speaker: '旁白',
+        text: '睡前噴灑於枕巾，陪伴你進入深層 Delta 腦波，讓夢境成為療癒之源。',
+      },
+    ],
+  },
+  {
+    id: 'ad_crystal_intuition',
+    title: '💎 烏拉圭深紫晶與白水晶能量陣 · 直覺之眼',
+    advertiser: 'Aura Sanctum 晶石工坊',
+    tagline: '「淨化床頭負向氣場，增強清醒夢與靈性直覺，記錄靈感不再遺忘。」',
+    posterUrl: 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?q=80&w=1200&auto=format&fit=crop',
+    durationSeconds: 10,
+    rewardStars: 1,
+    category: 'meditation_scene',
+    bgGradient: 'from-[#1b092b] via-[#2f104a] to-[#0c0314]',
+    accentColor: '#ffd27a',
+    isActive: true,
+    createdAt: '2026-09-17T08:15:00Z',
+    dialogueDialogue: [
+      {
+        speaker: '晶石治療師',
+        text: '紫水晶對應頂輪與第三眼，能安撫多夢焦慮，將混亂夢境轉化為覺察清明的洞見。',
+      },
+      {
+        speaker: '旁白',
+        text: '置於床頭或書桌，守護專屬你的夢境宇宙。',
+      },
+    ],
+  },
+];
+
 // Convenient aliases for component imports
 export const initialDreamDNA = INITIAL_DREAM_DNA;
 export const initialConstellationNodes = INITIAL_CONSTELLATION_NODES;
 export const initialConstellationLinks = INITIAL_CONSTELLATION_LINKS;
 export const initialThirtyNightsJourney = INITIAL_THIRTY_NIGHTS;
 export const initialDetectiveQuestions = generateDetectiveQuestions('');
+export const initialAdVideos = INITIAL_AD_VIDEOS;
 

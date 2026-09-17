@@ -1,88 +1,70 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, Sparkles, Volume2, VolumeX, CheckCircle, Play, Star } from 'lucide-react';
+import { AdVideoItem } from '../types';
+import { X, Sparkles, Volume2, VolumeX, CheckCircle, Star, Tv, Info, MessageSquare, Play, Pause, RotateCcw } from 'lucide-react';
 
 interface StarVideoModalProps {
   isOpen: boolean;
   onClose: () => void;
   onEarnStar: () => void;
   currentStars: number;
+  adVideos?: AdVideoItem[];
 }
-
-interface MeditationClip {
-  id: string;
-  title: string;
-  tagline: string;
-  bgGradient: string;
-  accentColor: string;
-  theme: 'sea' | 'galaxy' | 'forest' | 'candle';
-}
-
-const CLIPS: MeditationClip[] = [
-  {
-    id: 'sea',
-    title: '🌊 深海潮汐與鯨落冥想',
-    tagline: '感受潛意識的深邃與包容，讓緊繃的心情隨潮水退去。',
-    bgGradient: 'from-[#031526] via-[#082a47] to-[#020b14]',
-    accentColor: '#71d9ff',
-    theme: 'sea',
-  },
-  {
-    id: 'galaxy',
-    title: '🌌 銀河星軌與深空靜謐',
-    tagline: '在萬億星辰的無垠宇宙中，找回屬於你自己的安穩心靈坐標。',
-    bgGradient: 'from-[#120429] via-[#210c42] to-[#080214]',
-    accentColor: '#aa9cff',
-    theme: 'galaxy',
-  },
-  {
-    id: 'forest',
-    title: '🌿 靜夜松林與流螢微光',
-    tagline: '夜風拂過樹梢，深吸一口草木芬芳，釋放白天的所有焦慮。',
-    bgGradient: 'from-[#031c13] via-[#0a3324] to-[#020d08]',
-    accentColor: '#78e1b5',
-    theme: 'forest',
-  },
-  {
-    id: 'candle',
-    title: '🕯️ 潛意識暖光睡前引導',
-    tagline: '柔和燭光搖曳，告訴夢境深處的自己：現在是安全的。',
-    bgGradient: 'from-[#2b1704] via-[#45270b] to-[#120902]',
-    accentColor: '#ffd27a',
-    theme: 'candle',
-  },
-];
 
 export const StarVideoModal: React.FC<StarVideoModalProps> = ({
   isOpen,
   onClose,
   onEarnStar,
   currentStars,
+  adVideos = [],
 }) => {
-  const [currentClip, setCurrentClip] = useState<MeditationClip>(CLIPS[0]);
+  const [currentAd, setCurrentAd] = useState<AdVideoItem | null>(null);
   const [secondsRemaining, setSecondsRemaining] = useState(10);
+  const [totalDuration, setTotalDuration] = useState(10);
   const [isCompleted, setIsCompleted] = useState(false);
   const [hasClaimed, setHasClaimed] = useState(false);
   const [isMuted, setIsMuted] = useState(true);
+  const [activeDialogueIndex, setActiveDialogueIndex] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(true);
+
   const audioContextRef = useRef<AudioContext | null>(null);
   const oscRef = useRef<OscillatorNode | null>(null);
   const gainRef = useRef<GainNode | null>(null);
 
-  // When modal opens, pick a random clip and reset timer
+  // Pick a random active ad from database or fallback when modal opens
   useEffect(() => {
     if (isOpen) {
-      const randomClip = CLIPS[Math.floor(Math.random() * CLIPS.length)];
-      setCurrentClip(randomClip);
-      setSecondsRemaining(10);
+      const activeAds = adVideos.filter((ad) => ad.isActive);
+      const chosenAd =
+        activeAds.length > 0
+          ? activeAds[Math.floor(Math.random() * activeAds.length)]
+          : adVideos[0] || null;
+
+      setCurrentAd(chosenAd);
+      const dur = chosenAd?.durationSeconds || 10;
+      setTotalDuration(dur);
+      setSecondsRemaining(dur);
       setIsCompleted(false);
       setHasClaimed(false);
+      setActiveDialogueIndex(0);
+      setIsPlaying(true);
     } else {
       stopAmbientAudio();
     }
-  }, [isOpen]);
+  }, [isOpen, adVideos]);
 
-  // 10-second countdown
+  // Dialogue progression synchronization
   useEffect(() => {
-    if (!isOpen || isCompleted || secondsRemaining <= 0) return;
+    if (!isOpen || !currentAd?.dialogueDialogue || currentAd.dialogueDialogue.length === 0) return;
+    const dialogCount = currentAd.dialogueDialogue.length;
+    const elapsed = totalDuration - secondsRemaining;
+    const intervalPerDialog = totalDuration / dialogCount;
+    const curIndex = Math.min(dialogCount - 1, Math.floor(elapsed / Math.max(1, intervalPerDialog)));
+    setActiveDialogueIndex(curIndex);
+  }, [secondsRemaining, totalDuration, currentAd, isOpen]);
+
+  // Countdown timer
+  useEffect(() => {
+    if (!isOpen || isCompleted || !isPlaying || secondsRemaining <= 0) return;
 
     const timer = setInterval(() => {
       setSecondsRemaining((prev) => {
@@ -96,7 +78,7 @@ export const StarVideoModal: React.FC<StarVideoModalProps> = ({
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [isOpen, isCompleted, secondsRemaining]);
+  }, [isOpen, isCompleted, isPlaying, secondsRemaining]);
 
   // Ambient sound synthesizer
   const startAmbientAudio = () => {
@@ -110,9 +92,10 @@ export const StarVideoModal: React.FC<StarVideoModalProps> = ({
       const gain = ctx.createGain();
 
       osc.type = 'sine';
-      osc.frequency.setValueAtTime(174, ctx.currentTime); // Solfeggio healing frequency
+      // Harmonic 432Hz deep meditative ambient sound
+      osc.frequency.setValueAtTime(216, ctx.currentTime);
       gain.gain.setValueAtTime(0.01, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.08, ctx.currentTime + 2);
+      gain.gain.exponentialRampToValueAtTime(0.07, ctx.currentTime + 1.5);
 
       osc.connect(gain);
       gain.connect(ctx.destination);
@@ -167,31 +150,42 @@ export const StarVideoModal: React.FC<StarVideoModalProps> = ({
 
   if (!isOpen) return null;
 
-  const progressPercent = Math.min(100, Math.round(((10 - secondsRemaining) / 10) * 100));
+  const progressPercent = Math.min(100, Math.round(((totalDuration - secondsRemaining) / Math.max(1, totalDuration)) * 100));
+
+  const currentDialogue = currentAd?.dialogueDialogue?.[activeDialogueIndex];
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md animate-fade-in"
       id="star-video-modal-backdrop"
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-lg rounded-3xl border border-white/20 overflow-hidden shadow-2xl bg-[#090b15] text-white"
+        className="relative w-full max-w-lg rounded-3xl border border-white/20 overflow-hidden shadow-2xl bg-[#090b15] text-white flex flex-col max-h-[92vh]"
         id="star-video-modal-container"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Top Header */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/10 bg-black/40">
-          <div className="flex items-center gap-2">
-            <span className="w-6 h-6 rounded-full bg-amber-400/20 text-amber-400 flex items-center justify-center text-xs font-bold border border-amber-400/30">
-              ⭐
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-white/10 bg-black/40 shrink-0">
+          <div className="flex items-center gap-2.5">
+            <span className="w-7 h-7 rounded-xl bg-amber-400/20 text-amber-400 flex items-center justify-center text-xs font-bold border border-amber-400/30">
+              <Star className="w-4 h-4 fill-amber-300" />
             </span>
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-amber-300">
-                一般會員儲星計劃
-              </span>
+              <div className="flex items-center gap-1.5">
+                <span className="text-xs font-bold uppercase tracking-wider text-amber-300">
+                  廣告贊助儲星池
+                </span>
+                <span className="text-[10px] px-2 py-0.2 rounded-full bg-white/10 text-white/80 border border-white/10">
+                  {currentAd?.category === 'alien_philosophy'
+                    ? '👽 星際哲學'
+                    : currentAd?.category === 'brand_sponsor'
+                    ? '🌿 選物贊助'
+                    : '🌙 療癒聲景'}
+                </span>
+              </div>
               <span className="text-[11px] text-[#8d97b5] block">
-                現有星星：{currentStars} 顆
+                你的目前星星結餘：<b className="text-amber-200">{currentStars}</b> 顆
               </span>
             </div>
           </div>
@@ -199,72 +193,134 @@ export const StarVideoModal: React.FC<StarVideoModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full text-[#aab3d2] hover:text-white hover:bg-white/10 transition-colors"
+            className="p-1.5 rounded-full text-[#aab3d2] hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
             aria-label="關閉"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
-        {/* Video Canvas Stage */}
+        {/* Video Player Canvas Stage */}
         <div
-          className={`relative h-64 sm:h-72 w-full bg-gradient-to-b ${currentClip.bgGradient} flex flex-col items-center justify-center p-6 text-center overflow-hidden`}
+          className={`relative min-h-[280px] sm:min-h-[320px] w-full bg-gradient-to-b ${
+            currentAd?.bgGradient || 'from-[#0d0720] via-[#1a0f3d] to-[#05020c]'
+          } flex flex-col justify-between p-5 text-center overflow-hidden`}
         >
-          {/* Animated Atmospheric Background Glow */}
-          <div className="absolute inset-0 pointer-events-none opacity-40">
-            <div className="absolute top-1/4 left-1/4 w-40 h-40 rounded-full bg-white/20 blur-3xl animate-pulse" />
+          {/* Background Poster Visual with blur if available */}
+          {currentAd?.posterUrl && (
             <div
-              className="absolute bottom-1/4 right-1/4 w-48 h-48 rounded-full blur-3xl"
-              style={{ backgroundColor: currentClip.accentColor, opacity: 0.3 }}
+              className="absolute inset-0 bg-cover bg-center opacity-20 pointer-events-none mix-blend-luminosity scale-105 transition-transform duration-1000"
+              style={{ backgroundImage: `url(${currentAd.posterUrl})` }}
             />
+          )}
+
+          {/* Glowing Aura Effect */}
+          <div className="absolute inset-0 pointer-events-none opacity-35">
+            <div
+              className="absolute top-1/4 left-1/4 w-44 h-44 rounded-full blur-3xl"
+              style={{ backgroundColor: currentAd?.accentColor || '#aa9cff' }}
+            />
+            <div className="absolute bottom-1/4 right-1/4 w-44 h-44 rounded-full bg-white/20 blur-3xl" />
           </div>
 
-          {/* Calming Ripple / Pulsing Core */}
-          <div className="relative z-10 flex flex-col items-center">
-            <div className="relative w-20 h-20 rounded-full flex items-center justify-center border border-white/30 bg-white/5 backdrop-blur-sm mb-4 shadow-lg">
-              <div
-                className="absolute inset-0 rounded-full animate-ping opacity-25"
-                style={{ backgroundColor: currentClip.accentColor }}
-              />
-              <Sparkles className="w-8 h-8" style={{ color: currentClip.accentColor }} />
+          {/* Top Advertiser Tag */}
+          <div className="relative z-10 flex items-center justify-between gap-2">
+            <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-black/60 backdrop-blur-md border border-white/15 text-[11px] text-[#cbd2ef]">
+              <Tv className="w-3 h-3 text-emerald-400" />
+              <span>贊助商：{currentAd?.advertiser || 'DreamWisdom Partner'}</span>
+            </span>
+
+            <div className="px-2.5 py-1 rounded-full bg-amber-400/20 border border-amber-400/30 text-xs font-mono text-amber-300 flex items-center gap-1 shadow-sm">
+              <Star className="w-3 h-3 fill-amber-300" />
+              <span>完播獎勵 +{currentAd?.rewardStars || 1} 星</span>
+            </div>
+          </div>
+
+          {/* Center Content: Title & Dynamic Interactive Video Dialogue */}
+          <div className="relative z-10 my-auto py-3 max-w-md mx-auto space-y-3">
+            <div className="w-14 h-14 rounded-2xl mx-auto flex items-center justify-center border border-white/25 bg-black/40 backdrop-blur-md shadow-lg">
+              <Sparkles className="w-7 h-7" style={{ color: currentAd?.accentColor || '#78e1b5' }} />
             </div>
 
-            <h3 className="text-lg sm:text-xl font-bold text-white tracking-wide">
-              {currentClip.title}
-            </h3>
-            <p className="text-xs sm:text-sm text-white/80 max-w-sm mt-1.5 leading-relaxed">
-              {currentClip.tagline}
-            </p>
+            <div>
+              <h3 className="text-base sm:text-lg font-bold text-white tracking-wide">
+                {currentAd?.title}
+              </h3>
+              <p className="text-xs text-[#cbd2ef] mt-1 leading-relaxed line-clamp-2 px-2">
+                {currentAd?.tagline}
+              </p>
+            </div>
+
+            {/* Dynamic Dialogue Subtitles Box */}
+            {currentDialogue ? (
+              <div className="p-3.5 rounded-2xl bg-black/70 border border-white/20 backdrop-blur-md text-left space-y-1.5 shadow-xl transition-all duration-300 animate-fade-in">
+                <div className="flex items-center justify-between text-[11px]">
+                  <span
+                    className="font-bold flex items-center gap-1"
+                    style={{ color: currentAd?.accentColor || '#78e1b5' }}
+                  >
+                    <MessageSquare className="w-3 h-3" />
+                    <span>{currentDialogue.speaker}：</span>
+                  </span>
+                  <span className="text-[#8d97b5] font-mono">
+                    對話 {activeDialogueIndex + 1}/{currentAd?.dialogueDialogue?.length || 1}
+                  </span>
+                </div>
+                <p className="text-xs text-white leading-relaxed font-sans font-medium">
+                  {currentDialogue.text}
+                </p>
+              </div>
+            ) : null}
           </div>
 
-          {/* Sound Toggle */}
-          <button
-            type="button"
-            onClick={toggleSound}
-            className="absolute bottom-4 left-4 p-2 rounded-xl bg-black/50 border border-white/15 text-xs text-white/90 hover:bg-black/70 flex items-center gap-1.5 transition-colors z-20 cursor-pointer"
-          >
-            {isMuted ? <VolumeX className="w-4 h-4 text-[#8d97b5]" /> : <Volume2 className="w-4 h-4 text-[#78e1b5]" />}
-            <span>{isMuted ? '開啟白噪音' : '靜音'}</span>
-          </button>
+          {/* Bottom Bar Controls inside player */}
+          <div className="relative z-10 flex items-center justify-between pt-2">
+            {/* Sound Toggle */}
+            <button
+              type="button"
+              onClick={toggleSound}
+              className="p-2 px-3 rounded-xl bg-black/60 border border-white/15 text-xs text-white/90 hover:bg-black/80 flex items-center gap-1.5 transition-colors cursor-pointer backdrop-blur-md"
+            >
+              {isMuted ? (
+                <VolumeX className="w-3.5 h-3.5 text-[#8d97b5]" />
+              ) : (
+                <Volume2 className="w-3.5 h-3.5 text-emerald-400" />
+              )}
+              <span>{isMuted ? '開啟聲景' : '靜音'}</span>
+            </button>
 
-          {/* Floating Stars badge */}
-          <div className="absolute top-4 right-4 px-2.5 py-1 rounded-full bg-black/60 border border-white/20 text-xs font-mono text-amber-300 z-20 flex items-center gap-1">
-            <Star className="w-3 h-3 fill-amber-300" />
-            <span>觀看完獲取 +1 星</span>
+            {/* Play / Pause Toggle */}
+            <button
+              type="button"
+              onClick={() => setIsPlaying(!isPlaying)}
+              className="p-2 px-3 rounded-xl bg-black/60 border border-white/15 text-xs text-white/90 hover:bg-black/80 flex items-center gap-1.5 transition-colors cursor-pointer backdrop-blur-md"
+            >
+              {isPlaying ? (
+                <>
+                  <Pause className="w-3.5 h-3.5 text-amber-300" />
+                  <span>暫停</span>
+                </>
+              ) : (
+                <>
+                  <Play className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>繼續</span>
+                </>
+              )}
+            </button>
           </div>
         </div>
 
         {/* Progress Bar & Reward Controls */}
-        <div className="p-5 bg-[#0e1224] border-t border-white/10 space-y-3.5">
+        <div className="p-5 bg-[#0c1020] border-t border-white/10 space-y-3.5 shrink-0">
           <div>
             <div className="flex items-center justify-between text-xs text-[#aab3d2] mb-1.5">
-              <span>{isCompleted ? '✓ 短片觀看完成！' : '正在觀看心靈短片…'}</span>
-              <span className="font-mono text-white">
-                {isCompleted ? '10/10 秒' : `剩餘 ${secondsRemaining} 秒`}
+              <span>{isCompleted ? '✓ 廣告觀看完成！點擊領取' : '廣告播放中，請勿關閉視窗…'}</span>
+              <span className="font-mono text-white font-semibold">
+                {isCompleted ? `${totalDuration}/${totalDuration} 秒` : `剩餘 ${secondsRemaining} 秒`}
               </span>
             </div>
 
-            <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+            <div className="w-full h-2.5 rounded-full bg-white/10 overflow-hidden">
               <div
                 className="h-full transition-all duration-1000 ease-linear rounded-full bg-gradient-to-r from-[#aa9cff] via-[#71d9ff] to-amber-300"
                 style={{ width: `${progressPercent}%` }}
@@ -281,31 +337,31 @@ export const StarVideoModal: React.FC<StarVideoModalProps> = ({
               className={`w-full py-3 px-4 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-all cursor-pointer ${
                 hasClaimed
                   ? 'bg-[#78e1b5]/20 text-[#78e1b5] border border-[#78e1b5]/40'
-                  : 'bg-gradient-to-r from-amber-400 to-amber-500 text-black hover:from-amber-300 hover:to-amber-400 shadow-lg shadow-amber-500/20 active:scale-98'
+                  : 'bg-gradient-to-r from-amber-400 to-amber-500 text-black hover:from-amber-300 hover:to-amber-400 shadow-lg shadow-amber-500/25 active:scale-98'
               }`}
               id="btn-claim-star-reward"
             >
               {hasClaimed ? (
                 <>
                   <CheckCircle className="w-4 h-4 text-[#78e1b5]" />
-                  <span>已領取！星星 +1 ⭐（現有 {currentStars + 1} 顆）</span>
+                  <span>已成功入帳！星星 +{currentAd?.rewardStars || 1} ⭐（現有 {currentStars + (currentAd?.rewardStars || 1)} 顆）</span>
                 </>
               ) : (
                 <>
                   <Star className="w-4 h-4 fill-black" />
-                  <span>點擊領取 1 顆夢境星星 ⭐</span>
+                  <span>點擊領取 {currentAd?.rewardStars || 1} 顆夢境星星 ⭐</span>
                 </>
               )}
             </button>
           ) : (
             <div className="flex items-center justify-between text-xs text-[#8d97b5] px-1">
-              <span>倒數完成即可獲得 1 顆星星，解鎖進階夢境功能。</span>
+              <span>倒數完成後立即派發星星幣，可兌換配額及折抵選物。</span>
               <button
                 type="button"
                 onClick={onClose}
-                className="text-[#aab3d2] hover:text-white underline cursor-pointer"
+                className="text-[#aab3d2] hover:text-white underline cursor-pointer text-xs"
               >
-                略過
+                略過廣告
               </button>
             </div>
           )}

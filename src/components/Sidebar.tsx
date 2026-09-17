@@ -5,7 +5,7 @@ import { Sparkles, Dna, Compass, Key, Clock, Brain, Settings, ArrowLeft, LogOut,
 interface SidebarProps {
   currentUser?: User | null;
   activeSection?: 'workspace' | 'dna' | 'constellation' | 'mystery' | 'history' | 'patterns';
-  onNavigate: (view: 'home' | 'app' | 'admin', section?: 'workspace' | 'dna' | 'constellation' | 'mystery' | 'history' | 'patterns') => void;
+  onNavigate: (view: 'home' | 'app' | 'pricing' | 'privacy' | 'store' | 'admin', section?: 'workspace' | 'dna' | 'constellation' | 'mystery' | 'history' | 'patterns') => void;
   onLogout: () => void;
   onOpenEarnStars?: () => void;
 }
@@ -86,9 +86,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => onNavigate('app', 'dna')}
           className={`sideitem ${activeSection === 'dna' ? 'active' : ''}`}
           id="sidebar-item-dna"
+          title="DREAM DNA™️｜你的夢境指紋：統計你重複遇過嘅場景、物件同情緒"
         >
           <Dna className="w-4 h-4 text-[#aa9cff]" />
-          <span>🧬 DREAM DNA™️</span>
+          <div className="text-left leading-tight">
+            <div>🧬 DREAM DNA™️</div>
+            <div className="text-[10px] text-[#8d97b5] font-normal">夢境指紋</div>
+          </div>
         </button>
 
         <button
@@ -96,9 +100,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => onNavigate('app', 'constellation')}
           className={`sideitem ${activeSection === 'constellation' ? 'active' : ''}`}
           id="sidebar-item-constellation"
+          title="星圖 CONSTELLATION™️｜夢境連線：將唔同夢境嘅人、地、情緒連成星圖"
         >
           <Compass className="w-4 h-4 text-[#71d9ff]" />
-          <span>🌌 星圖宇宙</span>
+          <div className="text-left leading-tight">
+            <div>🌌 星圖 CONSTELLATION™️</div>
+            <div className="text-[10px] text-[#8d97b5] font-normal">夢境連線</div>
+          </div>
         </button>
 
         <button
@@ -106,9 +114,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
           onClick={() => onNavigate('app', 'mystery')}
           className={`sideitem ${activeSection === 'mystery' ? 'active' : ''}`}
           id="sidebar-item-mystery"
+          title="30 NIGHTS MYSTERY™️｜30晚潛意識檔案：每晚解鎖線索碎片"
         >
           <Key className="w-4 h-4 text-[#ffd27a]" />
-          <span>🗝️ 30 NIGHTS</span>
+          <div className="text-left leading-tight">
+            <div>🗝️ 30 NIGHTS™️</div>
+            <div className="text-[10px] text-[#8d97b5] font-normal">30晚潛意識檔案</div>
+          </div>
         </button>
 
         <button
@@ -122,6 +134,40 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </button>
 
         <div className="my-2 border-t border-white/10" />
+
+        {/* Pricing & Star Coins Nav Link */}
+        <button
+          type="button"
+          onClick={() => onNavigate('pricing')}
+          className="sideitem text-amber-200/90 hover:text-amber-100"
+          id="sidebar-item-pricing"
+        >
+          <Star className="w-4 h-4 text-amber-300 fill-amber-300" />
+          <span>⭐ 方案與星星幣</span>
+        </button>
+
+        {/* Product Store / Healing goods */}
+        <button
+          type="button"
+          onClick={() => onNavigate('store')}
+          className="sideitem text-emerald-300 hover:text-emerald-200"
+          id="sidebar-item-store"
+          title="解夢選物店：碌柚葉去霉噴霧、深眠草本、空間淨化"
+        >
+          <span className="text-emerald-400">🌿</span>
+          <span>解夢選物店 (碌柚葉)</span>
+        </button>
+
+        {/* Privacy Policy Link */}
+        <button
+          type="button"
+          onClick={() => onNavigate('privacy')}
+          className="sideitem text-[#8d97b5] hover:text-[#78e1b5]"
+          id="sidebar-item-privacy"
+        >
+          <ShieldCheck className="w-4 h-4 text-[#78e1b5]" />
+          <span>🛡️ 私隱承諾與條款</span>
+        </button>
 
         {isManagement && (
           <button

@@ -3,8 +3,8 @@ import { User, normalizeRole, getRoleDisplayName } from '../types';
 import { Moon, ShieldCheck, UserCircle, LogIn, Sparkles, BookOpen, Star, Crown, Settings } from 'lucide-react';
 
 interface NavbarProps {
-  currentView: 'home' | 'app' | 'admin';
-  setCurrentView: (view: 'home' | 'app' | 'admin') => void;
+  currentView: 'home' | 'app' | 'pricing' | 'privacy' | 'store' | 'admin';
+  setCurrentView: (view: 'home' | 'app' | 'pricing' | 'privacy' | 'store' | 'admin') => void;
   currentUser: User | null;
   onOpenLogin: () => void;
   onLogout: () => void;
@@ -63,6 +63,42 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <Sparkles className="w-4 h-4 text-[#aa9cff]" />
             我的夢境
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCurrentView('pricing')}
+            className={`bg-transparent border-0 text-[14px] cursor-pointer flex items-center gap-1.5 ${
+              currentView === 'pricing' ? 'text-amber-300 font-semibold' : 'text-[#cbd2ef] hover:text-white'
+            }`}
+            id="nav-link-pricing"
+          >
+            <Star className="w-3.5 h-3.5 fill-amber-300 text-amber-300" />
+            <span>方案與星星幣</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCurrentView('store')}
+            className={`bg-transparent border-0 text-[14px] cursor-pointer flex items-center gap-1.5 ${
+              currentView === 'store' ? 'text-emerald-400 font-semibold' : 'text-[#cbd2ef] hover:text-white'
+            }`}
+            id="nav-link-store"
+          >
+            <span className="text-emerald-400">🌿</span>
+            <span>解夢選物店</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setCurrentView('privacy')}
+            className={`bg-transparent border-0 text-[14px] cursor-pointer flex items-center gap-1.5 ${
+              currentView === 'privacy' ? 'text-[#78e1b5] font-semibold' : 'text-[#cbd2ef] hover:text-white'
+            }`}
+            id="nav-link-privacy"
+          >
+            <ShieldCheck className="w-3.5 h-3.5 text-[#78e1b5]" />
+            <span>私隱承諾</span>
           </button>
 
           {/* Admin link for Admin & Super Admin */}

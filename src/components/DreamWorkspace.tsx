@@ -42,6 +42,8 @@ interface DreamWorkspaceProps {
   onDreamAdded?: (entry: DreamEntry) => void;
   onUpdateUserStars?: (newStars: number) => void;
   onOpenEarnStars?: () => void;
+  onGoToPricing?: () => void;
+  onGoToStore?: (productId?: string) => void;
 }
 
 export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
@@ -53,6 +55,8 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
   onDreamAdded,
   onUpdateUserStars,
   onOpenEarnStars,
+  onGoToPricing,
+  onGoToStore,
 }) => {
   const [activeTab, setActiveTab] = useState<'workspace' | 'dna' | 'constellation' | 'mystery' | 'history'>(initialTab);
   const [dream, setDream] = useState(prefilledDream);
@@ -198,16 +202,26 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
       const data = await response.json();
       setActiveReport(data.report);
 
-      const newEntry: DreamEntry = data.entry || {
-        id: 'dream_' + Date.now(),
-        title: data.report.title,
-        dream_text: dream.trim(),
-        created_at: new Date().toISOString(),
-        report_json: data.report,
-      };
+      const normRole = currentUser ? normalizeRole(currentUser.role) : 'free';
+      const isPaid = normRole === 'paid' || normRole === 'admin' || normRole === 'super_admin';
+      const maxQuota = isPaid ? 99999 : (currentUser?.storage_quota || 3);
 
-      setHistory((prev) => [newEntry, ...prev]);
-      if (onDreamAdded) onDreamAdded(newEntry);
+      if (!isPaid && history.length >= maxQuota) {
+        setErrorNotice(
+          `⚠️ 儲存提醒：你目前為一般會員，已達到夢境儲存上限（${history.length} / ${maxQuota} 條）。已為你完成深度解讀，但未能存入日記。請前往日記刪除舊記錄、或在「方案與星星幣」用星星幣兌換儲存配額（最多 10 條），或升級付費版解鎖無限儲存！`
+        );
+      } else {
+        const newEntry: DreamEntry = data.entry || {
+          id: 'dream_' + Date.now(),
+          title: data.report.title,
+          dream_text: dream.trim(),
+          created_at: new Date().toISOString(),
+          report_json: data.report,
+        };
+
+        setHistory((prev) => [newEntry, ...prev]);
+        if (onDreamAdded) onDreamAdded(newEntry);
+      }
 
       // Update DNA & Mystery Journey
       setDreamDNA((prev) => ({
@@ -336,9 +350,10 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                 ? 'bg-[#aa9cff] text-white shadow-md shadow-[#aa9cff]/20'
                 : 'bg-white/5 border border-white/10 text-[#aab3d2] hover:bg-white/10 hover:text-white'
             }`}
+            title="DREAM DNA™️｜你的夢境指紋：統計重複遇過嘅場景、物件同情緒"
           >
             <Dna className="w-3.5 h-3.5" />
-            <span>DREAM DNA™️</span>
+            <span>DREAM DNA™️ (夢境指紋)</span>
           </button>
 
           <button
@@ -349,9 +364,10 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                 ? 'bg-[#aa9cff] text-white shadow-md shadow-[#aa9cff]/20'
                 : 'bg-white/5 border border-white/10 text-[#aab3d2] hover:bg-white/10 hover:text-white'
             }`}
+            title="星圖 CONSTELLATION™️｜夢境連線：將唔同夢境嘅人、地、情緒連成星圖"
           >
             <Compass className="w-3.5 h-3.5" />
-            <span>星圖宇宙</span>
+            <span>星圖連線</span>
           </button>
 
           <button
@@ -362,9 +378,10 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                 ? 'bg-[#aa9cff] text-white shadow-md shadow-[#aa9cff]/20'
                 : 'bg-white/5 border border-white/10 text-[#aab3d2] hover:bg-white/10 hover:text-white'
             }`}
+            title="30 NIGHTS MYSTERY™️｜30晚潛意識檔案：每晚解鎖線索碎片"
           >
             <Key className="w-3.5 h-3.5" />
-            <span>30 NIGHTS</span>
+            <span>30 NIGHTS™️ (30晚檔案)</span>
           </button>
 
           <button
@@ -662,34 +679,80 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                 </div>
               )}
 
+              {/* POST-DREAM HEALING PRODUCT RECOMMENDATION (Post-Analysis Selection) */}
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-purple-950/20 to-black border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-2xl shrink-0">
+                    🌿
+                  </div>
+                  <div className="space-y-0.5">
+                    <div className="flex items-center gap-2">
+                      <span className="badge bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-[10px]">
+                        解夢轉運選物
+                      </span>
+                      <span className="text-[11px] text-amber-300 font-medium">
+                        零離 · 廣東碌柚葉香水噴霧 (去霉開運)
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#cbd2ef] leading-relaxed line-clamp-1">
+                      嶺南古方碌柚葉黃酮，醒後一噴驅散夢境黏滯與心神不寧，重置清爽個人氣場。
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
+                  <span className="text-xs font-bold text-white">HK$68</span>
+                  <button
+                    type="button"
+                    onClick={() => onGoToStore && onGoToStore('prod_pomelo_spray')}
+                    className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs flex items-center gap-1 shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
+                  >
+                    <span>選購去霉</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
               {/* STEP 2 INVITATION: 需要進一步 AI 解夢才出 3 條進一步問題 */}
               <div className="mt-4 pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#aa9cff]/5 p-4 rounded-2xl border border-[#aa9cff]/20">
-                <div>
+                <div className="space-y-1">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-[#c3b9ff]">
                     <HelpCircle className="w-3.5 h-3.5 text-[#aa9cff]" />
-                    <span>需要進一步 AI 深度解夢？</span>
+                    <span>需要進一步 AI 深入解密？</span>
                     {currentUser && normalizeRole(currentUser.role) !== 'free' && (
                       <span className="text-[10px] px-2 py-0.2 rounded-full bg-[#78e1b5]/20 text-[#78e1b5] border border-[#78e1b5]/30">
-                        {getRoleDisplayName(currentUser.role)} · 直接解鎖
+                        {getRoleDisplayName(currentUser.role)} · 免扣星直接解鎖
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-[#aab3d2] mt-0.5">
+                  <p className="text-xs text-[#aab3d2] leading-relaxed">
                     {currentUser && normalizeRole(currentUser.role) === 'free'
-                      ? `回答 3 條問題生成深度四層架構（一般會員消耗 1 顆星星 · 目前餘額：${currentUser.stars ?? 2} 顆）。`
-                      : '付費會員與管理員可直接解鎖回答 3 條問題，AI 將生成深度四層架構並更新你的 DREAM DNA™️。'}
+                      ? `星星幣 = 免費用戶嘅代幣，睇廣告賺，唔使俾真金白銀都可以試進階功能（每次消耗 1 顆 · 結餘：${currentUser.stars ?? 2} 顆）。付費會員可直接全解鎖、唔使睇廣告！`
+                      : '付費會員已享尊貴特權：直接解鎖回答 3 條深入問題，由 AI 串連榮格典籍生成四層深度架構，並同步更新你的 DREAM DNA™️。'}
                   </p>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0">
-                  {currentUser && normalizeRole(currentUser.role) === 'free' && (currentUser.stars ?? 2) < 1 && onOpenEarnStars && (
+                  {currentUser && normalizeRole(currentUser.role) === 'free' && onOpenEarnStars && (
                     <button
                       type="button"
                       onClick={onOpenEarnStars}
                       className="px-3 py-2 rounded-xl bg-amber-400/20 text-amber-300 border border-amber-400/35 hover:bg-amber-400/30 text-xs font-bold flex items-center gap-1 cursor-pointer"
+                      title="睇 10 秒心靈短片賺星星幣"
                     >
                       <Star className="w-3.5 h-3.5 fill-amber-300" />
                       <span>睇片儲星 (+1)</span>
+                    </button>
+                  )}
+
+                  {onGoToPricing && (
+                    <button
+                      type="button"
+                      onClick={onGoToPricing}
+                      className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs border border-white/10 cursor-pointer"
+                      title="查看方案與星星幣兌換詳情"
+                    >
+                      方案詳情
                     </button>
                   )}
 
@@ -709,10 +772,10 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                       <>
                         <span>
                           {currentUser && normalizeRole(currentUser.role) !== 'free'
-                            ? '👑 直接進入深度解夢 (回答 3 題)'
+                            ? '👑 直接進入深入解密 (回答 3 題)'
                             : (currentUser?.stars ?? 2) >= 1
-                            ? '🔮 使用 1 星進入深度解夢 (回答 3 題)'
-                            : '🎬 儲星以解鎖深度解夢'}
+                            ? '🔮 使用 1 星進入深入解密 (回答 3 題)'
+                            : '🎬 儲星星幣以解鎖深入解密'}
                         </span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </>
@@ -900,6 +963,43 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                   ))}
                 </div>
               )}
+
+              {/* POST-DREAM PRODUCT RECOMMENDATION BANNER */}
+              <div className="p-5 rounded-3xl bg-gradient-to-r from-emerald-950/40 via-purple-950/30 to-black border border-emerald-500/40 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg shadow-emerald-950/30">
+                <div className="flex items-center gap-3.5">
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-2xl shrink-0">
+                    🌿
+                  </div>
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="badge bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-[10px]">
+                        解夢轉化配方 · 實體選物推薦
+                      </span>
+                      <span className="text-xs text-white font-bold">
+                        零離 · 廣東精選碌柚葉好運香水噴霧
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#cbd2ef] leading-relaxed">
+                      針對本場夢境意象，醒後以柚葉黃酮純露一噴淨化身心能量場，去霉開運、安神定心。
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto justify-end">
+                  <div className="text-right">
+                    <div className="text-sm font-black text-white">HK$68</div>
+                    <div className="text-[10px] text-amber-300 font-mono">支援星星幣折抵</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => onGoToStore && onGoToStore('prod_pomelo_spray')}
+                    className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
+                  >
+                    <span>選購轉運</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
 
               <div className="pt-2 flex justify-end">
                 <button

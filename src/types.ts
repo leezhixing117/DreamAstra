@@ -27,6 +27,8 @@ export interface User {
   display_name?: string;
   role: UserRole;
   stars?: number; // 一般會員透過隨機彈出片儲備之星星數
+  storage_quota?: number; // 免費預設 3 條，星星幣可兌換至上限 10 條，付費版為無限
+  privacy_local_only?: boolean; // 本地模式概念：數據只留存瀏覽器 LocalStorage
   created_at?: string;
 }
 
@@ -223,6 +225,53 @@ export interface BookBrainItem {
   created_at?: string;
 }
 
+export interface ProductItem {
+  id: string;
+  name: string;
+  subTitle: string;
+  brand: string;
+  priceHKD: number;
+  originalPriceHKD?: number;
+  starsRedeemCost?: number; // 可以用星星幣折抵或換購
+  category: 'purify' | 'sleep' | 'crystal' | 'incense' | 'herb';
+  categoryLabel: string;
+  volumeOrSpec: string;
+  shelfLife: string;
+  ingredients: string[];
+  keyBenefits: string[];
+  scentNotes?: {
+    top: string;
+    middle: string;
+    base: string;
+  };
+  suitableDreams: string[]; // 例如：['噩夢/鬼怪追逐', '神枱/祖先/家人牽絆', '考場焦慮/心神不寧', '轉運/去霉氣']
+  matchingKeywords: string[]; // 匹配關鍵字
+  recommendationReason: string; // 廣東話推薦理由
+  usageGuide: string;
+  cautions: string[];
+  imageUrl: string;
+  badge?: string;
+  inStock: boolean;
+}
+
+export interface PurchaseOrder {
+  id: string;
+  productId: string;
+  productName: string;
+  quantity: number;
+  unitPrice: number;
+  totalHKD: number;
+  starsUsed?: number;
+  customerName: string;
+  customerPhone: string;
+  deliveryMethod: 'sf_express' | 'store_pickup';
+  deliveryAddress: string;
+  paymentMethod: 'fps' | 'payme' | 'alipay_hk' | 'wechat_pay' | 'credit_card';
+  status: 'pending_payment' | 'paid' | 'dispatched';
+  createdAt: string;
+  associatedDreamSummary?: string;
+}
+
 export interface EngineSettings {
   personality: number;
   decisiveness: number;
@@ -230,3 +279,44 @@ export interface EngineSettings {
   temperature: number;
   model: string;
 }
+
+export interface AdVideoItem {
+  id: string;
+  title: string;
+  advertiser: string;
+  tagline: string;
+  videoUrl?: string; // 影片真實連結 (如 mp4 / webm / YouTube embed / 本地 blob)
+  posterUrl?: string; // 影片封面圖
+  dialogueDialogue?: Array<{
+    speaker: string; // '外星導師' | '地球探求者' | '旁白'
+    text: string;
+    speakerAvatar?: string;
+  }>;
+  durationSeconds: number; // 規定觀看秒數 (例如 10 - 15 秒)
+  rewardStars: number; // 觀看完獲得星星數 (預設 1 顆)
+  category: 'alien_philosophy' | 'healing_sound' | 'meditation_scene' | 'brand_sponsor';
+  bgGradient: string;
+  accentColor: string;
+  isActive: boolean; // 是否啟用 (隨機播放池)
+  createdAt: string;
+}
+
+export interface TherapistItem {
+  id: string;
+  name: string;
+  title: string; // 例如「資深頌缽音療師 & 潛意識導引師」
+  avatarUrl?: string;
+  specialties: string[]; // 專長，例如 ['頌缽音療', '睡眠障礙', '潛意識解夢', '情緒釋放', '創傷整合']
+  regions: string[]; // 地區，例如 ['香港 · 旺角', '香港 · 銅鑼灣', '線上視像 (Zoom/Google Meet)', '台灣 · 台北']
+  bookingUrl: string; // 預約或聯絡連結 (WhatsApp / IG / 官網)
+  contactPhone?: string; // WhatsApp 或電話
+  status: 'available' | 'busy' | 'rest'; // 狀態：可即時預約 / 預約爆滿 / 休假中
+  matchDreamKeywords: string[]; // 適合推薦的夢境需求關鍵詞，例如 ['噩夢', '被追', '失眠', '胸口發悶', '焦慮', '驚醒']
+  bio: string; // 詳細簡介
+  experienceYears?: number; // 從業年資
+  rating?: number; // 評分 (例如 4.9)
+  consultationFee?: string; // 諮詢收費 (例如 HK$800 / 60分鐘)
+  featured?: boolean; // 是否置頂推薦
+  createdAt: string;
+}
+

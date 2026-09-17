@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
-import { BookBrainItem, EngineSettings, User, UserRole, normalizeRole, getRoleDisplayName } from '../types';
-import { BookOpen, Sliders, Users, Upload, Check, AlertCircle, RefreshCw, UserCheck, Trash2, Edit3, Plus, ShieldCheck, ShieldAlert, Star, Crown, Settings } from 'lucide-react';
+import { BookBrainItem, EngineSettings, User, UserRole, ProductItem, AdVideoItem, normalizeRole, getRoleDisplayName } from '../types';
+import { INITIAL_PRODUCTS } from '../data/products';
+import { INITIAL_AD_VIDEOS } from '../data';
+import { BookOpen, Sliders, Users, Upload, Check, AlertCircle, RefreshCw, UserCheck, Trash2, Edit3, Plus, ShieldCheck, ShieldAlert, Star, Crown, Settings, ShoppingBag, Package, Sparkles, Tv, Play, Video, Eye } from 'lucide-react';
 
 interface BookTheoryItem {
   id: string;
@@ -45,11 +47,15 @@ interface AdminConsoleProps {
   initialBooks: BookBrainItem[];
   initialUsers: User[];
   initialSettings: EngineSettings;
+  initialProducts?: ProductItem[];
+  initialAdVideos?: AdVideoItem[];
   currentUserId: string;
   currentUserRole?: UserRole;
   onUpdateSettings: (settings: EngineSettings) => void;
   onUpdateUsers?: (users: User[]) => void;
   onUpdateBooks?: (books: BookBrainItem[]) => void;
+  onUpdateProducts?: (products: ProductItem[]) => void;
+  onUpdateAdVideos?: (adVideos: AdVideoItem[]) => void;
   onSwitchUser?: (user: User) => void;
 }
 
@@ -57,15 +63,28 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
   initialBooks,
   initialUsers,
   initialSettings,
+  initialProducts = INITIAL_PRODUCTS,
+  initialAdVideos = INITIAL_AD_VIDEOS,
   currentUserId,
   currentUserRole = 'super_admin',
   onUpdateSettings,
   onUpdateUsers,
   onUpdateBooks,
+  onUpdateProducts,
+  onUpdateAdVideos,
   onSwitchUser,
 }) => {
-  const [activeTab, setActiveTab] = useState<'books' | 'theories' | 'engine' | 'users'>('books');
+  const [activeTab, setActiveTab] = useState<'books' | 'theories' | 'products' | 'advideos' | 'engine' | 'users'>('books');
   const [books, setBooks] = useState<BookBrainItem[]>(initialBooks);
+  const [products, setProducts] = useState<ProductItem[]>(initialProducts);
+  const [adVideos, setAdVideos] = useState<AdVideoItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('dreamwisdom_ad_videos');
+      return saved ? JSON.parse(saved) : initialAdVideos;
+    } catch {
+      return initialAdVideos;
+    }
+  });
   const [theories, setTheories] = useState<BookTheoryItem[]>(() => {
     try {
       const saved = localStorage.getItem('dreamwisdom_theories');
@@ -89,7 +108,195 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
     coreInsight: '',
   });
 
+  // Product management state
+  const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null);
+  const [isAddingProduct, setIsAddingProduct] = useState(false);
+  const [productForm, setProductForm] = useState<Partial<ProductItem>>({
+    name: '',
+    subTitle: '',
+    brand: '',
+    priceHKD: 68,
+    category: 'purify',
+    categoryLabel: '淨化去霉 · 好運轉化',
+    volumeOrSpec: '100ML',
+    shelfLife: '2 年',
+    recommendationReason: '',
+    usageGuide: '',
+    imageUrl: '',
+    badge: '',
+    inStock: true,
+  });
+
+  // Ad Video Management State
+  const [editingAd, setEditingAd] = useState<AdVideoItem | null>(null);
+  const [isAddingAd, setIsAddingAd] = useState(false);
+  const [previewingAd, setPreviewingAd] = useState<AdVideoItem | null>(null);
+  const [adForm, setAdForm] = useState<Partial<AdVideoItem>>({
+    title: '',
+    advertiser: '',
+    tagline: '',
+    durationSeconds: 10,
+    rewardStars: 1,
+    category: 'alien_philosophy',
+    bgGradient: 'from-[#0b051d] via-[#1a0c3b] to-[#04010a]',
+    accentColor: '#aa9cff',
+    isActive: true,
+    posterUrl: '',
+    videoUrl: '',
+  });
+  const [dialogueRows, setDialogueRows] = useState<Array<{ speaker: string; text: string }>>([
+    { speaker: '外星導師', text: '' },
+  ]);
+
   const isSuperAdmin = normalizeRole(currentUserRole) === 'super_admin';
+
+  // Save products
+  const saveProducts = (updated: ProductItem[]) => {
+    setProducts(updated);
+    if (onUpdateProducts) onUpdateProducts(updated);
+    try {
+      localStorage.setItem('dreamwisdom_products', JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleSaveProduct = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!productForm.name || !productForm.priceHKD) return;
+
+    if (editingProduct) {
+      const updated = products.map((p) =>
+        p.id === editingProduct.id
+          ? {
+              ...p,
+              ...productForm,
+              name: productForm.name || p.name,
+              priceHKD: Number(productForm.priceHKD) || p.priceHKD,
+            }
+          : p
+      );
+      saveProducts(updated);
+      setNotice(`已更新產品「${productForm.name}」資料`);
+      setEditingProduct(null);
+    } else {
+      const newProd: ProductItem = {
+        id: 'prod_' + Date.now(),
+        name: productForm.name || '新產品',
+        subTitle: productForm.subTitle || '',
+        brand: productForm.brand || 'DreamWisdom',
+        priceHKD: Number(productForm.priceHKD) || 50,
+        originalPriceHKD: productForm.originalPriceHKD ? Number(productForm.originalPriceHKD) : undefined,
+        starsRedeemCost: 15,
+        category: productForm.category || 'purify',
+        categoryLabel: productForm.categoryLabel || '好運淨化',
+        volumeOrSpec: productForm.volumeOrSpec || '標準裝',
+        shelfLife: productForm.shelfLife || '2 年',
+        ingredients: productForm.ingredients || ['天然草本提取物'],
+        keyBenefits: productForm.keyBenefits || ['淨化空間與身心氣場'],
+        suitableDreams: ['噩夢', '心神不寧', '去霉轉運'],
+        matchingKeywords: ['霉', '鬼', '驚', '亂', '沉'],
+        recommendationReason: productForm.recommendationReason || '解夢後身心調節推薦',
+        usageGuide: productForm.usageGuide || '適量噴於空氣中或脈搏處',
+        cautions: ['避免入眼，置於陰涼乾燥處'],
+        imageUrl: productForm.imageUrl || 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&w=800&q=80',
+        badge: productForm.badge,
+        inStock: true,
+      };
+      const updated = [newProd, ...products];
+      saveProducts(updated);
+      setNotice(`已成功新增產品條目：「${newProd.name}」`);
+      setIsAddingProduct(false);
+    }
+  };
+
+  const handleDeleteProduct = (id: string) => {
+    if (!window.confirm('確定要從產品資料庫移除此商品嗎？')) return;
+    const updated = products.filter((p) => p.id !== id);
+    saveProducts(updated);
+    setNotice('已刪除該商品條目');
+  };
+
+  // Save Ad Videos
+  const saveAdVideos = (updated: AdVideoItem[]) => {
+    setAdVideos(updated);
+    if (onUpdateAdVideos) onUpdateAdVideos(updated);
+    try {
+      localStorage.setItem('dreamwisdom_ad_videos', JSON.stringify(updated));
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleSaveAdVideo = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adForm.title || !adForm.advertiser) {
+      alert('請填寫廣告標題及贊助商名稱');
+      return;
+    }
+
+    const filteredDialogues = dialogueRows.filter((d) => d.text.trim().length > 0);
+
+    if (editingAd) {
+      const updated = adVideos.map((ad) =>
+        ad.id === editingAd.id
+          ? {
+              ...ad,
+              ...adForm,
+              title: adForm.title || ad.title,
+              advertiser: adForm.advertiser || ad.advertiser,
+              tagline: adForm.tagline || ad.tagline,
+              durationSeconds: Number(adForm.durationSeconds) || ad.durationSeconds,
+              rewardStars: Number(adForm.rewardStars) || ad.rewardStars,
+              category: adForm.category || ad.category,
+              dialogueDialogue: filteredDialogues.length > 0 ? filteredDialogues : ad.dialogueDialogue,
+              bgGradient: adForm.bgGradient || ad.bgGradient,
+              accentColor: adForm.accentColor || ad.accentColor,
+              posterUrl: adForm.posterUrl,
+              videoUrl: adForm.videoUrl,
+            }
+          : ad
+      );
+      saveAdVideos(updated);
+      setNotice(`已更新廣告短片「${adForm.title}」`);
+      setEditingAd(null);
+    } else {
+      const newAd: AdVideoItem = {
+        id: 'ad_' + Date.now(),
+        title: adForm.title || '全新心靈贊助廣告',
+        advertiser: adForm.advertiser || '品牌贊助商',
+        tagline: adForm.tagline || '觀看獲取星星幣，解鎖進階夢境探索。',
+        durationSeconds: Number(adForm.durationSeconds) || 10,
+        rewardStars: Number(adForm.rewardStars) || 1,
+        category: adForm.category || 'alien_philosophy',
+        bgGradient: adForm.bgGradient || 'from-[#0b051d] via-[#1a0c3b] to-[#04010a]',
+        accentColor: adForm.accentColor || '#aa9cff',
+        isActive: adForm.isActive ?? true,
+        posterUrl: adForm.posterUrl || 'https://images.unsplash.com/photo-1518709268805-4e9042af9f23?auto=format&fit=crop&w=800&q=80',
+        videoUrl: adForm.videoUrl,
+        dialogueDialogue: filteredDialogues.length > 0 ? filteredDialogues : undefined,
+        createdAt: new Date().toISOString(),
+      };
+      const updated = [newAd, ...adVideos];
+      saveAdVideos(updated);
+      setNotice(`已成功新增廣告短片：「${newAd.title}」（現已加入隨機播放池）`);
+      setIsAddingAd(false);
+    }
+  };
+
+  const handleDeleteAdVideo = (id: string) => {
+    if (!window.confirm('確定要從廣告資料庫刪除此廣告短片嗎？客人將不再隨機觀看到此廣告。')) return;
+    const updated = adVideos.filter((a) => a.id !== id);
+    saveAdVideos(updated);
+    setNotice('已從廣告庫刪除該短片');
+  };
+
+  const handleToggleAdActive = (id: string) => {
+    const updated = adVideos.map((a) => (a.id === id ? { ...a, isActive: !a.isActive } : a));
+    saveAdVideos(updated);
+    const target = updated.find((a) => a.id === id);
+    setNotice(`廣告「${target?.title}」狀態已更改為：${target?.isActive ? '啟用 (隨機播放)' : '已下架停播'}`);
+  };
 
   // Save theories to localStorage
   const saveTheories = (updated: BookTheoryItem[]) => {
@@ -298,8 +505,8 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
             </div>
             <p className="text-xs opacity-90 mt-0.5">
               {isSuperAdmin
-                ? '您擁有最高權限：可管理修改 Book Brain 典籍、調整 AI 語氣參數，以及更改所有會員之等級與星星配置。'
-                : '您擁有內容管理權限：可管理與修改 Book Brain 典籍、編輯夢境理論辭典、調整 AI 引擎參數。（更改會員等級需高級管理員權限）'}
+                ? '您擁有最高權限：可管理修改 Book Brain 典籍、廣告賺星影片庫、調整 AI 語氣參數，以及更改所有會員之等級與星星配置。'
+                : '您擁有內容管理權限：可管理與修改 Book Brain 典籍、廣告賺星影片庫、編輯夢境理論辭典、調整 AI 引擎參數。（更改會員等級需高級管理員權限）'}
             </p>
           </div>
         </div>
@@ -339,6 +546,32 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
         >
           <Edit3 className="w-4 h-4 text-[#78e1b5]" />
           <span>📑 夢境理論辭典管理 ({theories.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('products')}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+            activeTab === 'products'
+              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-sm'
+              : 'text-[#aab3d2] hover:text-white bg-white/5 border border-transparent'
+          }`}
+        >
+          <Package className="w-4 h-4 text-emerald-400" />
+          <span>🌿 解夢選物產品庫 ({products.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('advideos')}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+            activeTab === 'advideos'
+              ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40 shadow-sm'
+              : 'text-[#aab3d2] hover:text-white bg-white/5 border border-transparent'
+          }`}
+        >
+          <Tv className="w-4 h-4 text-amber-400" />
+          <span>📺 賺星廣告影片庫 ({adVideos.length})</span>
         </button>
 
         <button
@@ -641,7 +874,625 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
         </section>
       )}
 
-      {/* TAB 3: AI ENGINE SETTINGS */}
+      {/* TAB 3: PRODUCTS DATABASE MANAGEMENT */}
+      {activeTab === 'products' && (
+        <section className="card p-6" id="admin-products-card">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+            <div>
+              <span className="badge bg-emerald-500/20 text-emerald-300 border-emerald-500/40">
+                <Package className="w-3 h-3 text-emerald-400" />
+                POST-DREAM PRODUCTS DATABASE
+              </span>
+              <h2 style={{ fontSize: 24, marginTop: 12 }} className="text-white font-bold">
+                解夢後選購產品資料庫管理
+              </h2>
+              <p className="text-xs sm:text-sm text-[#cbd2ef] leading-relaxed mt-1">
+                管理可供客人在完成夢境分析後選購之身心轉運產品（包含廣東碌柚葉好運噴霧、安眠草本、空間淨化等）。
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => {
+                setIsAddingProduct(true);
+                setEditingProduct(null);
+                setProductForm({
+                  name: '',
+                  subTitle: '',
+                  brand: '零離 (LINGLI)',
+                  priceHKD: 68,
+                  category: 'purify',
+                  categoryLabel: '淨化去霉 · 好運轉化',
+                  volumeOrSpec: '100ML',
+                  shelfLife: '2 年',
+                  recommendationReason: '',
+                  usageGuide: '',
+                  imageUrl: 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&w=800&q=80',
+                  badge: '🌿 新品推薦',
+                  inStock: true,
+                });
+              }}
+              className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs flex items-center gap-1.5 self-start sm:self-auto cursor-pointer shadow-md shadow-emerald-500/20"
+            >
+              <Plus className="w-4 h-4" />
+              <span>新增產品條目</span>
+            </button>
+          </div>
+
+          {/* Add / Edit Product Form */}
+          {(isAddingProduct || editingProduct) && (
+            <form
+              onSubmit={handleSaveProduct}
+              className="p-5 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 space-y-4 mb-6"
+            >
+              <div className="flex items-center justify-between border-b border-emerald-500/20 pb-2">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Package className="w-4 h-4 text-emerald-400" />
+                  <span>{editingProduct ? '編輯產品資料' : '新增選物產品條目'}</span>
+                </h3>
+                <span className="text-xs text-emerald-300">
+                  {editingProduct ? `ID: ${editingProduct.id}` : '草稿'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                <div>
+                  <label className="text-[#cbd2ef] block mb-1">產品名稱 *</label>
+                  <input
+                    type="text"
+                    required
+                    value={productForm.name || ''}
+                    onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
+                    placeholder="例如：零離 · 廣東精選碌柚葉好運香水噴霧"
+                    className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[#cbd2ef] block mb-1">副標題 / 宣傳特點</label>
+                  <input
+                    type="text"
+                    value={productForm.subTitle || ''}
+                    onChange={(e) => setProductForm({ ...productForm, subTitle: e.target.value })}
+                    placeholder="例如：去霉開運 · 日進斗金 · 鴻運當頭"
+                    className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[#cbd2ef] block mb-1">品牌名稱</label>
+                  <input
+                    type="text"
+                    value={productForm.brand || ''}
+                    onChange={(e) => setProductForm({ ...productForm, brand: e.target.value })}
+                    placeholder="例如：零離 (LINGLI)"
+                    className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[#cbd2ef] block mb-1">售價 (HK$) *</label>
+                    <input
+                      type="number"
+                      required
+                      value={productForm.priceHKD || 0}
+                      onChange={(e) => setProductForm({ ...productForm, priceHKD: Number(e.target.value) })}
+                      className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[#cbd2ef] block mb-1">原價 (HK$)</label>
+                    <input
+                      type="number"
+                      value={productForm.originalPriceHKD || ''}
+                      onChange={(e) => setProductForm({ ...productForm, originalPriceHKD: Number(e.target.value) })}
+                      placeholder="98"
+                      className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[#cbd2ef] block mb-1">產品分類</label>
+                  <select
+                    value={productForm.category || 'purify'}
+                    onChange={(e) => setProductForm({ ...productForm, category: e.target.value as any })}
+                    className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs focus:outline-none focus:border-emerald-500 cursor-pointer"
+                  >
+                    <option value="purify">🍃 淨化去霉 · 好運轉化 (碌柚葉等)</option>
+                    <option value="sleep">🌙 深眠安神 · 夢境撫慰 (枕頭噴霧)</option>
+                    <option value="incense">🌿 空間結界 · 白鼠尾草</option>
+                    <option value="crystal">💎 靈性直覺 · 守護水晶</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[#cbd2ef] block mb-1">規格容量 / 包裝</label>
+                  <input
+                    type="text"
+                    value={productForm.volumeOrSpec || ''}
+                    onChange={(e) => setProductForm({ ...productForm, volumeOrSpec: e.target.value })}
+                    placeholder="100ML 噴霧裝"
+                    className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="text-[#cbd2ef] block mb-1">產品圖片 URL</label>
+                  <input
+                    type="text"
+                    value={productForm.imageUrl || ''}
+                    onChange={(e) => setProductForm({ ...productForm, imageUrl: e.target.value })}
+                    placeholder="圖片網址"
+                    className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="text-[#cbd2ef] block mb-1">解夢後推薦理由 (廣東話)</label>
+                  <textarea
+                    rows={2}
+                    value={productForm.recommendationReason || ''}
+                    onChange={(e) => setProductForm({ ...productForm, recommendationReason: e.target.value })}
+                    placeholder="醒來若感心有餘悸或沉重滯塞，廣東傳統以碌柚葉水淨身去霉..."
+                    className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 pt-2 border-t border-white/10">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingProduct(false);
+                    setEditingProduct(null);
+                  }}
+                  className="btn2 text-xs py-1.5 px-3"
+                >
+                  取消
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs cursor-pointer shadow-md"
+                >
+                  儲存產品
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Products List */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            {products.map((p) => (
+              <div
+                key={p.id}
+                className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-emerald-500/40 transition-all flex items-start gap-4"
+              >
+                <img
+                  src={p.imageUrl}
+                  alt={p.name}
+                  referrerPolicy="no-referrer"
+                  className="w-20 h-20 rounded-xl object-cover bg-black/40 shrink-0 border border-white/10"
+                />
+
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[10px] text-emerald-400 font-medium">
+                      {p.categoryLabel}
+                    </span>
+                    <span className="text-xs font-black text-white font-mono">
+                      HK${p.priceHKD}
+                    </span>
+                  </div>
+
+                  <h4 className="text-xs font-bold text-white truncate">
+                    {p.name}
+                  </h4>
+                  <p className="text-[11px] text-[#aab3d2] line-clamp-1">
+                    {p.subTitle}
+                  </p>
+
+                  <div className="text-[10px] text-[#8d97b5] pt-0.5">
+                    規格：{p.volumeOrSpec} · 品牌：{p.brand}
+                  </div>
+
+                  <div className="pt-2 flex items-center justify-between border-t border-white/5">
+                    <span className="text-[10px] text-amber-300">
+                      適用關鍵字：{p.matchingKeywords.slice(0, 4).join('、')}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingProduct(p);
+                          setIsAddingProduct(false);
+                          setProductForm(p);
+                        }}
+                        className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs"
+                        title="編輯此產品"
+                      >
+                        <Edit3 className="w-3.5 h-3.5" />
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteProduct(p.id)}
+                        className="p-1.5 rounded-lg bg-white/5 hover:bg-red-500/20 text-[#8d97b5] hover:text-[#ff8b9d] text-xs"
+                        title="刪除"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* TAB: AD VIDEO DATABASE MANAGEMENT (只有管理員及高級管理員加減，隨意出給客人觀看賺星星) */}
+      {activeTab === 'advideos' && (
+        <section className="card p-6" id="admin-advideos-card">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4 mb-6">
+            <div>
+              <span className="badge bg-amber-500/20 text-amber-300 border-amber-500/40">
+                <Tv className="w-3 h-3 text-amber-400" />
+                ADVERTISEMENT & SPONSOR VIDEO DATABASE
+              </span>
+              <h2 style={{ fontSize: 24, marginTop: 8 }} className="text-white font-bold">
+                賺星星廣告資料庫管理
+              </h2>
+              <p className="text-xs sm:text-sm text-[#cbd2ef] mt-1">
+                此處所管理的廣告短片將於客人點擊「睇片儲星」時，隨機挑選播放。只有管理員及高級管理員有權新增、編輯、下架或刪除。
+              </p>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsAddingAd(true);
+                  setEditingAd(null);
+                  setAdForm({
+                    title: '',
+                    advertiser: '',
+                    tagline: '',
+                    durationSeconds: 10,
+                    rewardStars: 1,
+                    category: 'alien_philosophy',
+                    bgGradient: 'from-[#0b051d] via-[#1a0c3b] to-[#04010a]',
+                    accentColor: '#aa9cff',
+                    isActive: true,
+                    posterUrl: '',
+                    videoUrl: '',
+                  });
+                  setDialogueRows([{ speaker: '外星導師', text: '' }]);
+                }}
+                className="btn primary text-xs py-2 px-3.5 flex items-center gap-1.5 shadow-md shadow-amber-500/10 cursor-pointer"
+                id="btn-add-advideo"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>新增廣告短片</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Add / Edit Ad Video Form */}
+          {(isAddingAd || editingAd) && (
+            <form
+              onSubmit={handleSaveAdVideo}
+              className="p-5 rounded-2xl bg-amber-950/20 border border-amber-500/30 space-y-4 mb-6 animate-fade-in"
+              id="advideo-form"
+            >
+              <div className="flex items-center justify-between border-b border-amber-500/20 pb-2">
+                <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                  <Tv className="w-4 h-4 text-amber-400" />
+                  <span>{editingAd ? '編輯廣告短片內容' : '新增廣告短片資料'}</span>
+                </h3>
+                <span className="text-xs text-amber-300">
+                  {editingAd ? `ID: ${editingAd.id}` : '全新廣告條目'}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 text-xs">
+                <div>
+                  <label className="text-[#cbd2ef] block mb-1">廣告標題 / 主題 *</label>
+                  <input
+                    type="text"
+                    required
+                    value={adForm.title || ''}
+                    onChange={(e) => setAdForm({ ...adForm, title: e.target.value })}
+                    placeholder="例如：👽 星際對話 · 外星導師解密夢境的唯一真實"
+                    className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[#cbd2ef] block mb-1">贊助商 / 廣告商品牌 *</label>
+                  <input
+                    type="text"
+                    required
+                    value={adForm.advertiser || ''}
+                    onChange={(e) => setAdForm({ ...adForm, advertiser: e.target.value })}
+                    placeholder="例如：Intergalactic Consciousness Lab 或 零離 LINGLI"
+                    className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div className="sm:col-span-2">
+                  <label className="text-[#cbd2ef] block mb-1">宣傳標語 / 口號 (Tagline)</label>
+                  <input
+                    type="text"
+                    value={adForm.tagline || ''}
+                    onChange={(e) => setAdForm({ ...adForm, tagline: e.target.value })}
+                    placeholder="例如：「做夢才是真的？夢境是來自真實心靈的投射，它比你自認為的內心還要真實。」"
+                    className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[#cbd2ef] block mb-1">播放秒數 (秒)</label>
+                    <input
+                      type="number"
+                      min={5}
+                      max={60}
+                      value={adForm.durationSeconds || 10}
+                      onChange={(e) => setAdForm({ ...adForm, durationSeconds: Number(e.target.value) })}
+                      className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-[#cbd2ef] block mb-1">完播獎勵星星 (顆)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={10}
+                      value={adForm.rewardStars || 1}
+                      onChange={(e) => setAdForm({ ...adForm, rewardStars: Number(e.target.value) })}
+                      className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs focus:outline-none focus:border-amber-400"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[#cbd2ef] block mb-1">廣告類別</label>
+                    <select
+                      value={adForm.category || 'alien_philosophy'}
+                      onChange={(e) => setAdForm({ ...adForm, category: e.target.value as any })}
+                      className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs focus:outline-none focus:border-amber-400"
+                    >
+                      <option value="alien_philosophy">👽 星際哲學 / 心靈對話</option>
+                      <option value="brand_sponsor">🌿 選物商品 / 品牌贊助</option>
+                      <option value="healing_sound">🌙 療癒聲景 / 深眠導引</option>
+                      <option value="meditation_scene">💎 冥想水晶 / 能量場景</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="text-[#cbd2ef] block mb-1">播放狀態</label>
+                    <select
+                      value={adForm.isActive ? 'true' : 'false'}
+                      onChange={(e) => setAdForm({ ...adForm, isActive: e.target.value === 'true' })}
+                      className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs focus:outline-none focus:border-amber-400"
+                    >
+                      <option value="true">✓ 啟用中 (客人隨機觀看)</option>
+                      <option value="false">⏸️ 下架停播 (不提供觀看)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="text-[#cbd2ef] block mb-1">背景封面海報 URL</label>
+                  <input
+                    type="url"
+                    value={adForm.posterUrl || ''}
+                    onChange={(e) => setAdForm({ ...adForm, posterUrl: e.target.value })}
+                    placeholder="https://images.unsplash.com/..."
+                    className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[#cbd2ef] block mb-1">影片連結 URL (可選 mp4 / 嵌入)</label>
+                  <input
+                    type="text"
+                    value={adForm.videoUrl || ''}
+                    onChange={(e) => setAdForm({ ...adForm, videoUrl: e.target.value })}
+                    placeholder="可選填影片網址或留空使用沉浸式聲畫"
+                    className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs focus:outline-none focus:border-amber-400"
+                  />
+                </div>
+              </div>
+
+              {/* Dynamic Subtitles / Dialogue Lines */}
+              <div className="pt-2 border-t border-amber-500/20">
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-bold text-amber-200 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <span>廣告播放對白／語音字幕流（按秒數分段自動滾動）：</span>
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setDialogueRows([...dialogueRows, { speaker: '外星導師', text: '' }])}
+                    className="text-xs text-amber-400 hover:text-amber-300 flex items-center gap-1 cursor-pointer"
+                  >
+                    <Plus className="w-3 h-3" />
+                    <span>新增一段對白</span>
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {dialogueRows.map((row, idx) => (
+                    <div key={idx} className="flex items-center gap-2 text-xs">
+                      <input
+                        type="text"
+                        value={row.speaker}
+                        onChange={(e) => {
+                          const updated = [...dialogueRows];
+                          updated[idx].speaker = e.target.value;
+                          setDialogueRows(updated);
+                        }}
+                        placeholder="說話者 (如 外星導師)"
+                        className="w-28 px-2.5 py-1.5 rounded-lg bg-black/50 border border-white/15 text-amber-300 font-bold text-xs"
+                      />
+                      <input
+                        type="text"
+                        value={row.text}
+                        onChange={(e) => {
+                          const updated = [...dialogueRows];
+                          updated[idx].text = e.target.value;
+                          setDialogueRows(updated);
+                        }}
+                        placeholder="字幕內容 (如：我們認為夢境是唯一的真實，夢境來自真實心靈的投射...)"
+                        className="flex-1 px-3 py-1.5 rounded-lg bg-black/50 border border-white/15 text-white text-xs"
+                      />
+                      {dialogueRows.length > 1 && (
+                        <button
+                          type="button"
+                          onClick={() => setDialogueRows(dialogueRows.filter((_, i) => i !== idx))}
+                          className="p-1.5 text-red-400 hover:text-red-300 cursor-pointer"
+                          title="移除此句"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Form Buttons */}
+              <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-amber-500/20">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsAddingAd(false);
+                    setEditingAd(null);
+                  }}
+                  className="px-4 py-2 rounded-xl text-xs text-[#aab3d2] hover:text-white bg-white/5 cursor-pointer"
+                >
+                  取消
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-400 text-black shadow-md shadow-amber-500/20 cursor-pointer"
+                >
+                  {editingAd ? '更新廣告' : '確認新增入庫'}
+                </button>
+              </div>
+            </form>
+          )}
+
+          {/* Ad Videos List */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            {adVideos.map((ad) => (
+              <div
+                key={ad.id}
+                className={`p-4 rounded-2xl border transition-all flex flex-col justify-between ${
+                  ad.isActive
+                    ? 'bg-white/[0.03] border-white/10 hover:border-amber-400/40'
+                    : 'bg-black/30 border-white/5 opacity-60'
+                }`}
+              >
+                <div>
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className={`w-2 h-2 rounded-full ${
+                          ad.isActive ? 'bg-emerald-400 animate-pulse' : 'bg-red-400'
+                        }`}
+                      />
+                      <span className="text-[11px] font-bold text-amber-300">
+                        {ad.advertiser}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-white/10 text-white/90">
+                        ⏱️ {ad.durationSeconds}s
+                      </span>
+                      <span className="text-[10px] font-mono px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                        ⭐ +{ad.rewardStars}
+                      </span>
+                    </div>
+                  </div>
+
+                  <h3 className="text-sm font-bold text-white leading-snug">
+                    {ad.title}
+                  </h3>
+
+                  <p className="text-xs text-[#aab3d2] mt-1.5 leading-relaxed line-clamp-2">
+                    {ad.tagline}
+                  </p>
+
+                  {/* Subtitle dialogue count preview */}
+                  {ad.dialogueDialogue && ad.dialogueDialogue.length > 0 && (
+                    <div className="mt-2.5 p-2 rounded-xl bg-black/40 border border-white/10 text-[11px] text-[#cbd2ef] flex items-center gap-2">
+                      <span className="text-amber-400 font-semibold shrink-0">
+                        💬 {ad.dialogueDialogue[0].speaker}：
+                      </span>
+                      <span className="truncate">
+                        {ad.dialogueDialogue[0].text}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="pt-3 mt-3 border-t border-white/10 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => handleToggleAdActive(ad.id)}
+                      className={`text-[11px] px-2.5 py-1 rounded-lg border font-medium cursor-pointer transition-all ${
+                        ad.isActive
+                          ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30 hover:bg-emerald-500/30'
+                          : 'bg-white/5 text-[#8d97b5] border-white/10 hover:text-white'
+                      }`}
+                    >
+                      {ad.isActive ? '✓ 播放中' : '⏸️ 已停播'}
+                    </button>
+                  </div>
+
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingAd(ad);
+                        setIsAddingAd(false);
+                        setAdForm(ad);
+                        setDialogueRows(
+                          ad.dialogueDialogue && ad.dialogueDialogue.length > 0
+                            ? ad.dialogueDialogue
+                            : [{ speaker: '外星導師', text: '' }]
+                        );
+                      }}
+                      className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs cursor-pointer"
+                      title="編輯廣告內容"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteAdVideo(ad.id)}
+                      className="p-1.5 rounded-lg bg-white/5 hover:bg-red-500/20 text-[#8d97b5] hover:text-[#ff8b9d] text-xs cursor-pointer"
+                      title="從資料庫刪除"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* TAB 4: AI ENGINE SETTINGS */}
       {activeTab === 'engine' && (
         <section className="card p-6" id="admin-dream-engine-card">
           <span className="badge">

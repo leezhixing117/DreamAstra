@@ -18,21 +18,26 @@ import {
 } from 'lucide-react';
 import { VoiceRecorder } from './VoiceRecorder';
 import { TherapeuticSupportModal } from './TherapeuticSupportModal';
+import { Star, Lock } from 'lucide-react';
 
 interface HomeViewProps {
   onStartWithDream: (dreamText: string) => void;
   onGoToApp: (tab?: 'workspace' | 'dna' | 'constellation' | 'mystery') => void;
   onGoToAdmin: () => void;
+  onGoToPricing?: () => void;
+  onGoToPrivacy?: () => void;
 }
 
 export const HomeView: React.FC<HomeViewProps> = ({
   onStartWithDream,
   onGoToApp,
+  onGoToPricing,
+  onGoToPrivacy,
 }) => {
   const [draftDream, setDraftDream] = useState('');
   const [isVoiceOpen, setIsVoiceOpen] = useState(false);
   const [isTherapeuticOpen, setIsTherapeuticOpen] = useState(false);
-  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
+  const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
   const samplePrompts = [
     { label: '🏫 舊校赤腳找課室', text: '我夢到自己返回以前讀書的學校，但所有人都不認得我。我一直找課室，最後發現自己沒有穿鞋……' },
@@ -56,28 +61,28 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
   const faqs = [
     {
-      q: 'AI 到底點樣解讀我嘅夢？背後有咩理論基礎？',
-      a: 'DreamWisdom 絕非隨機猜測或生硬套用範本。我們內建「Book Brain 大師典籍庫」，先從卡爾·榮格（Carl G. Jung）的《人及其象徵》、現代原型心理學與當代東方夢境文化層中找出相應理論依據；再由 AI 結合你過往記錄的夢境進行交叉比對，找出長期重複出現的意象、情緒演進或情境轉化，最終整理出真正值得你留意嘅心理訊息。',
+      q: 'AI 解夢準唔準？',
+      a: 'AI 解夢唔係算命籤文，冇絕對嘅「準唔準」，而係一面映照你內心深處嘅鏡子。我哋先從卡爾·榮格（Carl G. Jung）嘅《人及其象徵》、現代原型心理學與華人文化層中找出相應理論依據，再比對你生活情境與重複意象，啟發你思考白天壓抑或忽略咗嘅情緒與渴望。',
       icon: BookOpen,
-      badge: 'Book Brain 理論依據',
+      badge: '理論與原型依據',
     },
     {
-      q: '呢個係咪算命？會唔會預測吉凶好壞？',
-      a: '明確區分：這不是算命，不做任何吉凶好壞之預測。DreamWisdom 的核心定位是「個人的自我觀察日記工具」。夢境是潛意識在夜間對日間情感、隱秘壓力與內在渴望的自然消化與信號反映，而非靈異玄學籤文。我們幫助你透過夢境更誠實地看清自己的心理狀態，而非給予宿命論的標籤。',
+      q: '我嘅夢境紀錄會唔會俾其他人睇？',
+      a: '絕對唔會。夢境係人最私密嘅內心世界，所有紀錄只限你個人帳戶瀏覽；我哋絕不公開、絕不出售轉讓數據，亦明文承諾絕不用於訓練公開通用 AI 模型。你更加可以隨時一鍵清空所有夢境資料，或啟用「純本地模式」將數據只留喺你部手機／電腦。',
       icon: ShieldCheck,
-      badge: '非算命 · 自我觀察工具',
+      badge: '極致私隱 · 絕不訓練 AI',
     },
     {
-      q: 'DreamWisdom 可以代替心理諮詢或醫療治療嗎？',
-      a: '重要聲明：AI 解夢只係協助日常情緒覺察與自我反思，絕不等於專業心理治療師，亦不提供任何臨床醫療診斷或處方。若你長期受創傷夢魘、嚴重睡眠焦慮或抑鬱情緒困擾，請尋求註冊心理學家或精神科醫生之專業評估。我們系統亦貼心提供後續專業輔導轉介選項。',
+      q: '免費同 AI 深入解密分別係咩？',
+      a: '免費版提供單次夢境嘅基礎意象與情緒梳理，最多儲存 3 條記錄；AI 深入解密會調用 Book Brain 典籍文獻進行四層深度交叉分析、挖掘潛意識陰影（Shadow）與情結（Complex），並串聯你過往夢境進行時間線演進對比，累積你的 DREAM DNA™️ 與星圖。',
+      icon: Sparkles,
+      badge: '功能差異解析',
+    },
+    {
+      q: '如果經常發噩夢點算？',
+      a: '發噩夢通常係潛意識喺度強烈提醒你：生活中正面對未消化嘅壓力、創傷或者焦慮。夢境本身唔會傷害你。你可以先嘗試記低夢境情緒，亦可以用我哋嘅清醒夢意象改寫練習；但如果噩夢頻密發生、或者嚴重影響日常生活同睡眠品質，強烈建議尋找註冊臨床心理學家或精神科醫生等專業醫療協助。',
       icon: Heart,
-      badge: '非醫療診斷 · 溫暖陪伴',
-    },
-    {
-      q: '點解特別適合香港／廣東話使用者？',
-      a: '多數解夢工具生硬套用西方語境，忽略了香港人的本土記憶。DreamWisdom 深度適配廣東話口語與俚語語音輸入（支援「好閉翳」、「搵唔到路」、「搭lift」、「舊屋邨」等），轉寫後允許即時修正編輯。在文化破譯層面，我們深刻融入華人家庭責任、舊校園考試烙印、神枱與親人牽絆等集體潛意識意象。',
-      icon: MessageSquare,
-      badge: '廣東話本土適配',
+      badge: '專業心理關懷',
     },
   ];
 
@@ -316,11 +321,15 @@ export const HomeView: React.FC<HomeViewProps> = ({
       {/* SECTION: THREE PILLARS (DREAM DNA / CONSTELLATION / 30 NIGHTS) */}
       <section className="shell py-12 sm:py-16 border-t border-white/10" id="three-pillars-section">
         <div className="text-center max-w-xl mx-auto mb-8 sm:mb-12">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#aa9cff]/10 border border-[#aa9cff]/25 text-[#c3b9ff] text-xs font-semibold mb-3">
+            <Sparkles className="w-3.5 h-3.5" />
+            <span>淺白解釋 · 拒絕過度包裝</span>
+          </div>
           <h2 className="text-2xl sm:text-3xl font-serif font-bold text-white">
             三大夢境核心支柱
           </h2>
           <p className="text-xs sm:text-sm text-[#aab3d2] mt-1.5">
-            不僅解今晚的一場夢，更為你串連終身的潛意識宇宙。
+            不僅解今晚的一場夢，更為你串連終身的潛意識演進。
           </p>
         </div>
 
@@ -334,9 +343,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
               <Dna className="w-5 h-5" />
             </div>
             <h3 className="text-lg font-serif font-bold text-white">① DREAM DNA™️</h3>
-            <p className="text-xs text-[#78e1b5] font-mono mt-0.5">你的個人夢境指紋</p>
-            <p className="text-xs text-[#aab3d2] mt-2 leading-relaxed sm:leading-[1.7]">
-              統計象徵頻率（水、門、舊居）與情緒分佈，不再只是片面象徵，而是建立你的專屬心靈指紋。
+            <p className="text-xs text-[#78e1b5] font-mono mt-0.5">你的夢境指紋</p>
+            <p className="text-xs text-[#aab3d2] mt-2.5 leading-relaxed sm:leading-[1.7]">
+              統計你重複遇過嘅場景、物件同情緒，睇下潛意識重複關心啲乜。不再只是片面象徵，而是建立專屬你嘅心靈指紋。
             </p>
           </div>
 
@@ -349,9 +358,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
               <Compass className="w-5 h-5" />
             </div>
             <h3 className="text-lg font-serif font-bold text-white">② 星圖 CONSTELLATION™️</h3>
-            <p className="text-xs text-[#71d9ff] font-mono mt-0.5">夢境宇宙網絡連線</p>
-            <p className="text-xs text-[#aab3d2] mt-2 leading-relaxed sm:leading-[1.7]">
-              將不同夢境的人、地、情緒連成星圖，發現「水從洪水變平靜」等心境轉變軌跡。
+            <p className="text-xs text-[#71d9ff] font-mono mt-0.5">夢境連線</p>
+            <p className="text-xs text-[#aab3d2] mt-2.5 leading-relaxed sm:leading-[1.7]">
+              將唔同夢境嘅人、地、情緒連成星圖，發現潛意識心境轉變軌跡（例如水從洪水變平靜、黑影從追逐到對話）。
             </p>
           </div>
 
@@ -364,10 +373,49 @@ export const HomeView: React.FC<HomeViewProps> = ({
               <Key className="w-5 h-5" />
             </div>
             <h3 className="text-lg font-serif font-bold text-white">③ 30 NIGHTS MYSTERY™️</h3>
-            <p className="text-xs text-[#ffd27a] font-mono mt-0.5">30日逐步揭示潛意識</p>
-            <p className="text-xs text-[#aab3d2] mt-2 leading-relaxed sm:leading-[1.7]">
-              累計記錄 30 晚夢境，每晚解鎖線索碎片，解鎖震撼的「你的夢在反覆講甚麼」全息報告書。
+            <p className="text-xs text-[#ffd27a] font-mono mt-0.5">30晚潛意識檔案</p>
+            <p className="text-xs text-[#aab3d2] mt-2.5 leading-relaxed sm:leading-[1.7]">
+              每晚解鎖線索碎片，逐步解鎖「你嘅夢在反覆講緊乜」全息報告書，睇清內心深處最真實嘅聲音。
             </p>
+          </div>
+        </div>
+
+        {/* Dual Track Banner Callout */}
+        <div className="mt-8 p-5 rounded-2xl bg-gradient-to-r from-amber-400/10 via-[#aa9cff]/10 to-transparent border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-400/20 text-amber-300 flex items-center justify-center shrink-0">
+              <Star className="w-5 h-5 fill-amber-300" />
+            </div>
+            <div>
+              <div className="text-sm font-bold text-white flex items-center gap-2">
+                <span>雙軌制權益：付費直接解鎖，或睇廣告賺「星星幣」試用進階功能！</span>
+              </div>
+              <p className="text-xs text-[#aab3d2] mt-0.5">
+                免費儲存 3 條夢境 · 星星幣可兌換至 10 條與解鎖 AI 深入分析 · 付費享無限存檔與互動星圖
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2.5 shrink-0">
+            {onGoToPricing && (
+              <button
+                type="button"
+                onClick={onGoToPricing}
+                className="px-4 py-2 rounded-xl bg-amber-400 text-black font-bold text-xs hover:bg-amber-300 cursor-pointer shadow-md"
+              >
+                查看三方案詳情 →
+              </button>
+            )}
+            {onGoToPrivacy && (
+              <button
+                type="button"
+                onClick={onGoToPrivacy}
+                className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 text-white text-xs border border-white/10 cursor-pointer flex items-center gap-1"
+              >
+                <Lock className="w-3.5 h-3.5 text-[#78e1b5]" />
+                <span>私隱承諾</span>
+              </button>
+            )}
           </div>
         </div>
       </section>
