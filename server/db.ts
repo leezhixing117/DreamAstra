@@ -1,5 +1,6 @@
 import { Pool, QueryResult } from 'pg';
 import { INITIAL_USERS, INITIAL_DREAMS, INITIAL_BOOKS, INITIAL_SETTINGS, initialDreamDNA, initialConstellationNodes, initialConstellationLinks, initialThirtyNightsJourney } from '../src/data';
+import { initDreamMasterTables } from './dreamMaster';
 
 // Determine if Postgres DATABASE_URL is configured
 const connectionString = process.env.DATABASE_URL;
@@ -7,6 +8,10 @@ const connectionString = process.env.DATABASE_URL;
 let pool: Pool | null = null;
 let isPostgresReady = false;
 let dbError: string | null = null;
+
+export function getDbPool(): Pool | null {
+  return pool;
+}
 
 // Initialize Postgres pool if connection string exists
 if (connectionString) {
@@ -149,6 +154,9 @@ async function initPostgresTables() {
         );
       }
     }
+
+    // Initialize Dream Master SQL tables (books, dream_themes, dream_symbols, analysis_rules)
+    await initDreamMasterTables(pool);
   } finally {
     client.release();
   }

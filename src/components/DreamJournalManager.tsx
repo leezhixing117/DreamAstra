@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { DreamEntry } from '../types';
+import { exportHtmlToWord } from '../utils/wordExport';
 import {
   Search,
   Tag,
@@ -162,6 +163,26 @@ export const DreamJournalManager: React.FC<DreamJournalManagerProps> = ({
 
   const handlePrintPdf = () => {
     window.print();
+  };
+
+  const handleExportWord = () => {
+    const periodLabel = pdfPeriod === 'month' ? '本月度精裝手冊' : pdfPeriod === 'year' ? '年度潛意識全書' : '全部典藏歸檔';
+    const title = `DreamWisdom 潛意識漫遊指南 · 夢境手冊 (${periodLabel})`;
+    const htmlItems = filteredEntries.map((e, idx) => `
+      <div style="margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid #e5e7eb;">
+        <h3>Chapter ${idx + 1}：${e.title}</h3>
+        <p class="meta">記錄日期：${new Date(e.created_at).toLocaleDateString('zh-HK')} · 標籤：${e.tags?.join(', ') || '無'}</p>
+        <p><strong>【夢境如實還原】：</strong></p>
+        <div class="quote-box">「${e.dream_text}」</div>
+        ${e.report_json?.summary ? `<p><strong>【核心心理透視】：</strong><br>${e.report_json.summary}</p>` : ''}
+        ${e.report_json?.fourLayers ? `
+          <p><strong>【榮格心理與無意識層面】：</strong><br>${e.report_json.fourLayers.jungianLayer.description}</p>
+          <p><strong>【現實情感與生活整合指引】：</strong><br>${e.report_json.fourLayers.spiritualLayer.description}</p>
+        ` : ''}
+      </div>
+    `).join('');
+
+    exportHtmlToWord(title, title, htmlItems);
   };
 
   return (
@@ -587,7 +608,7 @@ export const DreamJournalManager: React.FC<DreamJournalManagerProps> = ({
             </div>
 
             {/* Actions */}
-            <div className="flex items-center justify-end gap-3 pt-2">
+            <div className="flex flex-wrap items-center justify-end gap-2.5 pt-2">
               <button
                 type="button"
                 onClick={() => setShowPdfModal(false)}
@@ -597,10 +618,21 @@ export const DreamJournalManager: React.FC<DreamJournalManagerProps> = ({
               </button>
               <button
                 type="button"
-                onClick={handlePrintPdf}
-                className="btn text-xs px-5 py-2.5 flex items-center gap-1.5 cursor-pointer shadow-lg shadow-[#ffd27a]/20"
+                onClick={handleExportWord}
+                className="btn2 text-xs px-4 py-2 flex items-center gap-1.5 cursor-pointer border-[#aa9cff]/40 text-[#c3b9ff] hover:bg-[#aa9cff]/15"
+                id="journal-export-word-btn"
+                title="匯出為 Microsoft Word 格式檔案 (.doc)"
               >
-                <Printer className="w-4 h-4" />
+                <Download className="w-3.5 h-3.5 text-[#aa9cff]" />
+                <span>匯出 Word 文件 (.doc)</span>
+              </button>
+              <button
+                type="button"
+                onClick={handlePrintPdf}
+                className="btn text-xs px-5 py-2 flex items-center gap-1.5 cursor-pointer shadow-lg shadow-[#ffd27a]/20"
+                id="journal-export-pdf-btn"
+              >
+                <Printer className="w-3.5 h-3.5" />
                 <span>立即列印 / 另存為 PDF</span>
               </button>
             </div>

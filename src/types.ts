@@ -320,3 +320,27 @@ export interface TherapistItem {
   createdAt: string;
 }
 
+export interface UserDreamContext {
+  gender?: string;
+  recent_status?: string;
+  is_recurring?: boolean;
+}
+
+export interface DreamMasterAnalysisResult {
+  success: boolean;
+  analysis_text: string;
+  word_count: number;
+  disclaimer: string;
+  retrieved_data_used: string;
+  retrieved_counts: {
+    symbols: number;
+    themes: number;
+    books_and_rules: number;
+  };
+  compressed_summary_for_followup: string;
+  cleaned_dream: string;
+  is_follow_up: boolean;
+  source: 'gemini' | 'fallback';
+}
+
+

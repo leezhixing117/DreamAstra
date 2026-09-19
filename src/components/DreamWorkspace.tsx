@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { DreamEntry, DreamReport, DreamSynthesis, EngineSettings, QuickAnalysis, DetectiveQuestion, User, normalizeRole, getRoleDisplayName } from '../types';
+import { DreamEntry, DreamReport, DreamSynthesis, EngineSettings, QuickAnalysis, DetectiveQuestion, User, TherapistItem, normalizeRole, getRoleDisplayName, UserDreamContext, DreamMasterAnalysisResult } from '../types';
 import { initialDreamDNA, initialConstellationNodes, initialConstellationLinks, initialThirtyNightsJourney, initialDetectiveQuestions } from '../data';
+import { exportHtmlToWord, copyFormattedText } from '../utils/wordExport';
 import { ReportDetailModal } from './ReportDetailModal';
-import { VoiceRecorder } from './VoiceRecorder';
 import { DetectiveInquiryModal } from './DetectiveInquiryModal';
 import { DreamDnaCard } from './DreamDnaCard';
 import { DreamConstellationView } from './DreamConstellationView';
@@ -19,7 +19,6 @@ import {
   Dna,
   Compass,
   Key,
-  Mic,
   Eye,
   Heart,
   Layers,
@@ -30,6 +29,17 @@ import {
   Crown,
   ShieldCheck,
   Video,
+  Database,
+  FileText,
+  Send,
+  CheckCircle2,
+  ChevronDown,
+  ChevronUp,
+  MessageSquare,
+  Download,
+  Copy,
+  Check,
+  Plus,
 } from 'lucide-react';
 
 interface DreamWorkspaceProps {
@@ -44,6 +54,7 @@ interface DreamWorkspaceProps {
   onOpenEarnStars?: () => void;
   onGoToPricing?: () => void;
   onGoToStore?: (productId?: string) => void;
+  therapists?: TherapistItem[];
 }
 
 export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
@@ -57,10 +68,10 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
   onOpenEarnStars,
   onGoToPricing,
   onGoToStore,
+  therapists,
 }) => {
   const [activeTab, setActiveTab] = useState<'workspace' | 'dna' | 'constellation' | 'mystery' | 'history'>(initialTab);
   const [dream, setDream] = useState(prefilledDream);
-  const [isVoiceOpen, setIsVoiceOpen] = useState(false);
   const [isDetectiveOpen, setIsDetectiveOpen] = useState(false);
   const [isTherapeuticOpen, setIsTherapeuticOpen] = useState(false);
 
@@ -84,19 +95,182 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
   const [constellationLinks] = useState(initialConstellationLinks);
   const [mysteryJourney, setMysteryJourney] = useState(initialThirtyNightsJourney);
 
-  const samplePrompts = [
-    '我夢到自己返回以前讀書的學校，但所有人都不認得我。我一直找課室，最後發現自己沒有穿鞋……',
-    '海水一路無聲地升高，水面漫過街道與窗戶，我爬到最高處的屋頂，看著一片汪洋，雖然害怕，但周圍好安靜。',
-    '有人在身後一直追著我，我心跳好快，一直狂奔，最後推開了一間荒廢木造舊屋的門躲在裡面……',
-    '已故的母親在老家神枱前點了三炷香，轉身笑著遞給我一疊紅包，我接過時發現全是白色信封……',
-  ];
-
   // Auto-fill if passed from HomeView
   useEffect(() => {
-    if (prefilledDream && !quickReport && !activeReport) {
+    if (prefilledDream) {
       setDream(prefilledDream);
+      setMasterAnalysis(null);
+      setQuickReport(null);
+      setActiveReport(null);
+      setFollowUpHistory([]);
+      setFollowUpQuestion('');
     }
   }, [prefilledDream]);
+
+  // Dream Master SQL SOP States
+  const [userContext, setUserContext] = useState<UserDreamContext>({
+    gender: '未指定',
+    recent_status: '',
+    is_recurring: false,
+  });
+  const [showContextOptions, setShowContextOptions] = useState(false);
+  const [isMasterAnalyzing, setIsMasterAnalyzing] = useState(false);
+  const [masterAnalysis, setMasterAnalysis] = useState<DreamMasterAnalysisResult | null>(null);
+  const [showRetrievedDataSnippet, setShowRetrievedDataSnippet] = useState(false);
+  const [followUpQuestion, setFollowUpQuestion] = useState('');
+  const [isFollowUpLoading, setIsFollowUpLoading] = useState(false);
+  const [followUpHistory, setFollowUpHistory] = useState<Array<{ q: string; a: string }>>([]);
+  const [copiedWordNotice, setCopiedWordNotice] = useState(false);
+
+  // Export Dream Master report as Microsoft Word (.doc)
+  const handleExportMasterToWord = () => {
+    if (!masterAnalysis) return;
+    const dreamTitle = (masterAnalysis.cleaned_dream || dream).slice(0, 18);
+    const title = `Dream Master 深度心理學解讀 · ${dreamTitle}...`;
+    const paragraphs = masterAnalysis.analysis_text
+      .split('\n')
+      .map((p) => p.trim())
+      .filter(Boolean)
+      .map((p) => {
+        if (p.startsWith('【') || p.startsWith('###') || p.startsWith('##')) {
+          return `<h2>${p.replace(/^[#\s]+/, '')}</h2>`;
+        }
+        return `<p>${p}</p>`;
+      })
+      .join('');
+
+    const followUpsHtml = followUpHistory.length > 0 ? `
+      <h2>深度追問對話歷程</h2>
+      ${followUpHistory.map((fu, idx) => `
+        <div style="margin-bottom: 16px;">
+          <p><strong>問 ${idx + 1}：${fu.q}</strong></p>
+          <div class="quote-box">${fu.a.replace(/\n/g, '<br>')}</div>
+        </div>
+      `).join('')}
+    ` : '';
+
+    const bodyHtml = `
+      <div class="quote-box">
+        <strong>【造夢者原始夢境紀錄】：</strong><br>
+        「${masterAnalysis.cleaned_dream || dream}」
+      </div>
+      ${userContext.recent_status ? `<p class="meta">造夢者近況背景：${userContext.recent_status}</p>` : ''}
+      <div>${paragraphs}</div>
+      ${followUpsHtml}
+    `;
+
+    exportHtmlToWord(`DreamWisdom_深度解夢報告_${new Date().toISOString().slice(0, 10)}`, title, bodyHtml);
+  };
+
+  // Copy report formatted for Microsoft Word / Notes paste
+  const handleCopyMasterText = async () => {
+    if (!masterAnalysis) return;
+    let fullText = `【DreamWisdom · Dream Master 深度心理學解讀】\n\n`;
+    fullText += `【造夢者原始夢境】：\n${masterAnalysis.cleaned_dream || dream}\n\n`;
+    if (userContext.recent_status) {
+      fullText += `【生活背景】：${userContext.recent_status}\n\n`;
+    }
+    fullText += `【深度心理學透視與榮格原型分析】：\n${masterAnalysis.analysis_text}\n\n`;
+    if (followUpHistory.length > 0) {
+      fullText += `【深度追問對話歷程】：\n`;
+      followUpHistory.forEach((fu, i) => {
+        fullText += `Q${i + 1}：${fu.q}\nA：${fu.a}\n\n`;
+      });
+    }
+    fullText += `備註：${masterAnalysis.disclaimer}`;
+    const ok = await copyFormattedText(fullText);
+    if (ok) {
+      setCopiedWordNotice(true);
+      setTimeout(() => setCopiedWordNotice(false), 3000);
+    }
+  };
+
+  // Dream Master SOP Analysis Runner
+  const handleRunMasterAnalysis = async () => {
+    if (!dream.trim()) return;
+    setErrorNotice(null);
+
+    // SOP Preprocessing character length requirement (< 15 characters)
+    if (dream.trim().length < 15) {
+      setErrorNotice('夢境文字少於 15 字，暫不執行解讀。請試著補充夢中的核心情緒（例如害怕、平靜、困惑）、周遭具體場景、身邊出現的人物或關鍵細節，以便透過心理意象資料庫為你精準解析。');
+      return;
+    }
+
+    setIsMasterAnalyzing(true);
+    try {
+      const response = await fetch('/api/dream/master-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_dream: dream.trim(),
+          user_context: {
+            gender: userContext.gender === '未指定' ? undefined : userContext.gender,
+            recent_status: userContext.recent_status?.trim() || undefined,
+            is_recurring: userContext.is_recurring,
+          },
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || data.error || '解析失敗');
+      }
+
+      setMasterAnalysis(data);
+      setFollowUpHistory([]);
+
+      // Auto scroll to SOP card
+      setTimeout(() => {
+        document.getElementById('dream-master-sop-card')?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    } catch (err: any) {
+      console.error(err);
+      setErrorNotice(err.message || 'Dream Master 深度解析失敗，請重試');
+    } finally {
+      setIsMasterAnalyzing(false);
+    }
+  };
+
+  // Follow-up on same dream (Only carries previous compressed summary <= 200 tokens)
+  const handleSendFollowUp = async () => {
+    if (!followUpQuestion.trim() || !masterAnalysis) return;
+    setIsFollowUpLoading(true);
+    setErrorNotice(null);
+
+    try {
+      const response = await fetch('/api/dream/master-analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          user_dream: dream.trim(),
+          follow_up: {
+            is_follow_up: true,
+            follow_up_question: followUpQuestion.trim(),
+            previous_summary: masterAnalysis.compressed_summary_for_followup || '',
+          },
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.message || data.error || '追問回答失敗');
+      }
+
+      setFollowUpHistory((prev) => [
+        ...prev,
+        { q: followUpQuestion.trim(), a: data.analysis_text },
+      ]);
+      setFollowUpQuestion('');
+      if (data.compressed_summary_for_followup) {
+        setMasterAnalysis((prev) => prev ? { ...prev, compressed_summary_for_followup: data.compressed_summary_for_followup } : null);
+      }
+    } catch (err: any) {
+      console.error(err);
+      setErrorNotice(err.message || '追問失敗，請稍後重試');
+    } finally {
+      setIsFollowUpLoading(false);
+    }
+  };
 
   // STEP 1: Perform Simple Basic Analysis (簡單初步分析)
   const handlePerformQuickAnalysis = async () => {
@@ -251,6 +425,9 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
     setDream('');
     setQuickReport(null);
     setActiveReport(null);
+    setMasterAnalysis(null);
+    setFollowUpHistory([]);
+    setFollowUpQuestion('');
     setErrorNotice(null);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -492,119 +669,426 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
               </div>
 
               <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setIsVoiceOpen(!isVoiceOpen)}
-                  className={`text-xs px-2.5 py-1 rounded-lg border flex items-center gap-1 transition-all cursor-pointer ${
-                    isVoiceOpen
-                      ? 'bg-[#aa9cff] text-white border-[#aa9cff]'
-                      : 'bg-white/5 border-white/10 text-[#cbd2ef] hover:bg-white/10'
-                  }`}
-                >
-                  <Mic className="w-3.5 h-3.5" />
-                  <span>{isVoiceOpen ? '切換文字' : '🎙️ 廣東話'}</span>
-                </button>
-
-                {(quickReport || activeReport) && (
+                {(quickReport || activeReport || masterAnalysis || dream.trim().length > 0) && (
                   <button
                     type="button"
                     onClick={handleResetDream}
-                    className="text-xs px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[#aab3d2] flex items-center gap-1 transition-all cursor-pointer"
+                    className="text-xs px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[#c3b9ff] hover:text-white flex items-center gap-1 transition-all cursor-pointer border border-white/10"
                     title="清空並記錄新夢"
+                    id="workspace-reset-dream-btn"
                   >
-                    <RotateCcw className="w-3 h-3" />
-                    <span>記錄新夢</span>
+                    <RotateCcw className="w-3 h-3 text-[#aa9cff]" />
+                    <span>清空重寫 / 記錄新夢</span>
                   </button>
                 )}
               </div>
             </div>
 
-            {isVoiceOpen ? (
-              <VoiceRecorder
-                onDreamRecorded={(text, rawCantonese) => {
-                  setDream(text);
-                  setIsVoiceOpen(false);
-                }}
-                onCancel={() => setIsVoiceOpen(false)}
+            <div className="relative">
+              <textarea
+                value={dream}
+                onChange={(e) => setDream(e.target.value)}
+                placeholder="寫低你記得嘅夢境……醒來時看見甚麼？心情如何？（至少 15 字，以利心理意象資料庫精準檢索）"
+                rows={4}
+                className="w-full text-base sm:text-sm leading-relaxed min-h-[140px] p-3.5 sm:p-4 rounded-2xl bg-[#090b16] border border-white/20 focus:border-[#aa9cff] focus:ring-2 focus:ring-[#aa9cff]/20 text-white placeholder-[#727c9e] outline-none transition-all shadow-inner"
+                id="workspace-dream-textarea"
               />
-            ) : (
-              <>
-                <textarea
-                  value={dream}
-                  onChange={(e) => setDream(e.target.value)}
-                  placeholder="寫低你記得嘅夢境……醒來時看見甚麼？心情如何？（可直接打字或使用右上角廣東話語音輸入）"
-                  rows={4}
-                  className="w-full text-base sm:text-sm leading-relaxed min-h-[130px]"
-                  id="workspace-dream-textarea"
-                />
 
-                {/* Structured Prompting Guide Chips for Waking Memory */}
-                <div className="flex flex-wrap items-center gap-1.5 mt-2.5 pt-2.5 border-t border-white/5">
-                  <span className="text-[11px] text-[#8d97b5]">記夢引導：</span>
-                  {[
-                    { label: '👥 有邊啲人物？', prompt: '【夢中人物】：' },
-                    { label: '📍 場景係邊度？', prompt: '【場景地點】：' },
-                    { label: '💭 感覺驚／開心／不安？', prompt: '【當時心情感覺】：' },
-                    { label: '🚪 有冇特定物件？', prompt: '【重要物件】：' },
-                  ].map((guide, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => {
-                        setDream((prev) => {
-                          const trimmed = prev.trim();
-                          return trimmed ? `${trimmed}\n${guide.prompt}` : guide.prompt;
-                        });
-                      }}
-                      className="text-[11px] px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[#cbd2ef] hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
-                    >
-                      {guide.label}
-                    </button>
-                  ))}
+              {/* Realtime Character Count & Minimum Guidance */}
+              <div className="flex items-center justify-between text-[11px] mt-1 px-1">
+                <div>
+                  {dream.trim().length > 0 && dream.trim().length < 15 ? (
+                    <span className="text-amber-400 flex items-center gap-1 font-medium">
+                      <AlertCircle className="w-3 h-3" />
+                      目前 {dream.trim().length} 字（少於 15 字）：SOP 規定請補充情緒、場景或關鍵細節方可解讀
+                    </span>
+                  ) : dream.trim().length >= 15 ? (
+                    <span className="text-[#78e1b5] flex items-center gap-1 font-medium">
+                      <CheckCircle2 className="w-3 h-3" />
+                      已達 {dream.trim().length} 字，符合 SQL 意象庫檢索條件
+                    </span>
+                  ) : (
+                    <span className="text-[#8d97b5]">建議完整描述夢中場景與情緒感受</span>
+                  )}
                 </div>
-
-                <div className="flex flex-wrap items-center gap-1.5 mt-2 pt-2 border-t border-white/5">
-                  <span className="text-[11px] text-[#8d97b5]">範例：</span>
-                  {samplePrompts.map((p, i) => (
-                    <button
-                      key={i}
-                      type="button"
-                      onClick={() => setDream(p)}
-                      className="text-[11px] px-2 py-0.5 rounded-md bg-white/5 border border-white/5 text-[#cbd2ef] hover:bg-white/10 hover:text-white transition-colors"
-                    >
-                      範例 {i + 1}
-                    </button>
-                  ))}
+                <div className="text-[#8d97b5] font-mono">
+                  {dream.trim().length} 字
                 </div>
+              </div>
+            </div>
 
-                <div className="flex items-center justify-between gap-3 mt-4 pt-3 border-t border-white/10">
-                  <div className="text-xs text-[#8d97b5]">
-                    {quickReport ? '已產出基本分析，可在下方展開進一步深度解夢' : '先作基本簡單分析，需要進一步解夢再回答 3 題'}
+            {/* Quick Word Adder Chips (點擊一鍵加字 / 補充關鍵意象詞) */}
+            <div className="flex flex-wrap items-center gap-1.5 mt-2.5 pt-2.5 border-t border-white/5">
+              <span className="text-[11px] text-[#aa9cff] font-medium flex items-center gap-1">
+                <Plus className="w-3 h-3" />
+                點擊加字／意象詞：
+              </span>
+              {[
+                { label: '🌊 海洋水流', text: '海洋、大水淹沒' },
+                { label: '👣 赤腳無鞋', text: '赤腳、沒穿鞋子' },
+                { label: '🏃 被追狂奔', text: '在黑暗中被人追趕、拼命狂奔' },
+                { label: '🏚️ 祖屋舊居', text: '小時候住過的舊屋居所' },
+                { label: '🕯️ 家宅神枱', text: '神枱香火、祖先排位' },
+                { label: '🏫 課室考試', text: '學校課室、試卷未答完' },
+                { label: '🚪 緊閉門鎖', text: '打不開的門、找不到鑰匙' },
+                { label: '🕳️ 高處墜落', text: '從高樓邊緣失足下墜' },
+                { label: '🪞 鏡中倒影', text: '看著鏡中的自己' },
+                { label: '🐍 野獸毒蛇', text: '突然出現的毒蛇怪獸' },
+                { label: '⏳ 趕車遲到', text: '快要遲到、錯過班次列車' },
+                { label: '🛗 下墜電梯', text: '失控快速下墜的電梯' },
+              ].map((item, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    setDream((prev) => {
+                      const trimmed = prev.trim();
+                      return trimmed ? `${trimmed}，夢中有${item.text}` : `昨晚夢見${item.text}`;
+                    });
+                  }}
+                  className="text-[11px] px-2 py-0.5 rounded-md bg-[#aa9cff]/10 border border-[#aa9cff]/20 text-[#cbd2ef] hover:bg-[#aa9cff]/25 hover:text-white transition-colors cursor-pointer"
+                  title={`點擊加入「${item.label}」`}
+                >
+                  +{item.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Optional User Context Drawer (可選補充資訊：性別、近況、是否為重複夢) */}
+            <div className="mt-3 pt-2.5 border-t border-white/5">
+              <button
+                type="button"
+                onClick={() => setShowContextOptions((prev) => !prev)}
+                className="text-xs text-[#aab3d2] hover:text-white flex items-center justify-between w-full py-1 cursor-pointer transition-colors"
+              >
+                <div className="flex items-center gap-2">
+                  <Database className="w-3.5 h-3.5 text-[#aa9cff]" />
+                  <span className="font-semibold text-white">可選補充資訊（提供背景利於模型結合個人現況解讀）</span>
+                  {(userContext.recent_status || userContext.gender !== '未指定' || userContext.is_recurring) && (
+                    <span className="text-[10px] px-2 py-0.2 rounded-full bg-[#aa9cff]/20 text-[#aa9cff] font-medium">
+                      已自訂背景
+                    </span>
+                  )}
+                </div>
+                <div className="flex items-center gap-1 text-[11px] text-[#8d97b5]">
+                  <span>{showContextOptions ? '收起' : '展開填寫'}</span>
+                  {showContextOptions ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </div>
+              </button>
+
+              {showContextOptions && (
+                <div className="mt-2.5 p-3.5 rounded-2xl bg-white/5 border border-white/10 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                  {/* Gender Option */}
+                  <div>
+                    <label className="block text-[11px] font-medium text-[#8d97b5] mb-1">造夢者性別</label>
+                    <select
+                      value={userContext.gender || '未指定'}
+                      onChange={(e) => setUserContext((prev) => ({ ...prev, gender: e.target.value }))}
+                      className="w-full bg-[#111425] border border-white/15 rounded-xl px-2.5 py-1.5 text-white text-xs focus:outline-none focus:border-[#aa9cff]"
+                    >
+                      <option value="未指定">未指定 / 不透露</option>
+                      <option value="女性">女性</option>
+                      <option value="男性">男性</option>
+                      <option value="多元性別">多元性別</option>
+                    </select>
                   </div>
 
+                  {/* Recurring Dream Option */}
+                  <div>
+                    <label className="block text-[11px] font-medium text-[#8d97b5] mb-1">是否為重複出現的夢</label>
+                    <select
+                      value={userContext.is_recurring ? 'true' : 'false'}
+                      onChange={(e) => setUserContext((prev) => ({ ...prev, is_recurring: e.target.value === 'true' }))}
+                      className="w-full bg-[#111425] border border-white/15 rounded-xl px-2.5 py-1.5 text-white text-xs focus:outline-none focus:border-[#aa9cff]"
+                    >
+                      <option value="false">否（首次出現此夢境）</option>
+                      <option value="true">是（重複出現 / 類似情節）</option>
+                    </select>
+                  </div>
+
+                  {/* Recent Life Status Option */}
+                  <div>
+                    <label className="block text-[11px] font-medium text-[#8d97b5] mb-1">近期生活近況</label>
+                    <input
+                      type="text"
+                      value={userContext.recent_status || ''}
+                      onChange={(e) => setUserContext((prev) => ({ ...prev, recent_status: e.target.value }))}
+                      placeholder="例：剛轉新工作、感情困擾、準備考試"
+                      className="w-full bg-[#111425] border border-white/15 rounded-xl px-2.5 py-1.5 text-white text-xs placeholder:text-[#6a759b] focus:outline-none focus:border-[#aa9cff]"
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Structured Prompting Guide Chips for Waking Memory */}
+            <div className="flex flex-wrap items-center gap-1.5 mt-2.5 pt-2.5 border-t border-white/5">
+              <span className="text-[11px] text-[#8d97b5]">記夢引導：</span>
+              {[
+                { label: '👥 有邊啲人物？', prompt: '【夢中人物】：' },
+                { label: '📍 場景係邊度？', prompt: '【場景地點】：' },
+                { label: '💭 感覺驚／開心／不安？', prompt: '【當時心情感覺】：' },
+                { label: '🚪 有冇特定物件？', prompt: '【重要物件】：' },
+              ].map((guide, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    setDream((prev) => {
+                      const trimmed = prev.trim();
+                      return trimmed ? `${trimmed}\n${guide.prompt}` : guide.prompt;
+                    });
+                  }}
+                  className="text-[11px] px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[#cbd2ef] hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
+                >
+                  {guide.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Action Buttons: Dream Master SQL SOP vs. Quick Analysis */}
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-4 pt-3 border-t border-white/10">
+              <div className="text-xs text-[#8d97b5]">
+                {masterAnalysis ? '✅ 已執行 Dream Master SQL 檢索深度解讀' : 'SOP 流程：預處理 ➔ SQL 意象與書籍檢索 ➔ 最小化 Prompt 注入 ➔ 600-900 字專業心理分析'}
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  type="button"
+                  className="btn2 text-xs px-3.5 py-2 flex items-center gap-1.5 cursor-pointer"
+                  disabled={isQuickAnalyzing || isMasterAnalyzing || !dream.trim()}
+                  onClick={handlePerformQuickAnalysis}
+                  id="workspace-quick-analyze-btn"
+                  title="快速初步分析"
+                >
+                  {isQuickAnalyzing ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>初步分析中…</span>
+                    </>
+                  ) : (
+                    <>
+                      <span>✨ 初步分析</span>
+                    </>
+                  )}
+                </button>
+
+                <button
+                  type="button"
+                  className="btn text-xs px-5 py-2.5 flex items-center gap-2 cursor-pointer bg-gradient-to-r from-[#aa9cff] to-[#71d9ff] text-[#0a0d1d] font-bold shadow-lg shadow-[#aa9cff]/20 hover:brightness-110"
+                  disabled={isMasterAnalyzing || !dream.trim() || dream.trim().length < 15}
+                  onClick={handleRunMasterAnalysis}
+                  id="workspace-master-analyze-btn"
+                  title={dream.trim().length < 15 ? '夢境文字少於 15 字，暫不可執行' : '執行 Dream Master SQL 檢索深度解讀'}
+                >
+                  {isMasterAnalyzing ? (
+                    <>
+                      <span className="w-3.5 h-3.5 border-2 border-[#0a0d1d] border-t-transparent rounded-full animate-spin" />
+                      <span>SQL 檢索與深度解析中…</span>
+                    </>
+                  ) : (
+                    <>
+                      <Database className="w-4 h-4" />
+                      <span>Dream Master SQL 深度解夢</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </section>
+
+          {/* DREAM MASTER SQL SOP RESULT CARD */}
+          {masterAnalysis && (
+            <section
+              className="card p-6 sm:p-7 rounded-3xl border border-[#aa9cff]/40 bg-gradient-to-b from-[#12162c] to-[#090c1b] space-y-5 shadow-2xl"
+              id="dream-master-sop-card"
+            >
+              {/* Header with SOP verification badges */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-xl bg-[#aa9cff]/20 border border-[#aa9cff]/30 text-[#aa9cff] flex items-center justify-center shrink-0">
+                    <Database className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <h2 className="text-base sm:text-lg font-serif font-bold text-white">
+                        Dream Master 深度心理學解讀
+                      </h2>
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#78e1b5]/15 text-[#78e1b5] border border-[#78e1b5]/30 font-medium">
+                        SQL 片段注入 SOP
+                      </span>
+                    </div>
+                    <p className="text-xs text-[#8d97b5]">
+                      非全書加載 · 精簡上下文壓縮 · 600-900 字心理學透視
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  {copiedWordNotice && (
+                    <span className="px-2.5 py-1 rounded-lg bg-[#78e1b5]/20 text-[#78e1b5] border border-[#78e1b5]/40 text-xs font-semibold flex items-center gap-1 animate-pulse">
+                      <Check className="w-3.5 h-3.5" />
+                      已複製！可貼入 Word
+                    </span>
+                  )}
                   <button
                     type="button"
-                    className="btn text-xs px-5 py-2.5 flex items-center gap-1.5"
-                    disabled={isQuickAnalyzing || !dream.trim()}
-                    onClick={handlePerformQuickAnalysis}
-                    id="workspace-quick-analyze-btn"
+                    onClick={handleCopyMasterText}
+                    className="btn2 text-xs px-2.5 py-1.5 flex items-center gap-1 cursor-pointer hover:border-[#aa9cff] text-[#cbd2ef]"
+                    title="複製整份報告文字，格式相容 Microsoft Word 及各筆記軟體"
+                    id="master-copy-word-btn"
                   >
-                    {isQuickAnalyzing ? (
-                      <>
-                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        <span>簡單分析中…</span>
-                      </>
+                    <Copy className="w-3.5 h-3.5 text-[#aa9cff]" />
+                    <span>複製全文</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleExportMasterToWord}
+                    className="btn2 text-xs px-3 py-1.5 flex items-center gap-1.5 cursor-pointer border-[#71d9ff]/40 text-[#71d9ff] hover:bg-[#71d9ff]/10"
+                    title="下載 Microsoft Word 格式 (.doc) 檔案"
+                    id="master-export-word-btn"
+                  >
+                    <Download className="w-3.5 h-3.5 text-[#71d9ff]" />
+                    <span>匯出 Word 檔 (.doc)</span>
+                  </button>
+                  <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-white font-mono">
+                    字數：{masterAnalysis.word_count} 字
+                  </span>
+                  <span className="px-2.5 py-1 rounded-lg bg-white/5 border border-white/10 text-[#71d9ff] font-mono">
+                    {masterAnalysis.source === 'gemini' ? 'Gemini 3.8 Flash' : '專業心理模型'}
+                  </span>
+                </div>
+              </div>
+
+              {/* SQL Retrieval Injected Metrics Bar */}
+              <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+                  <span className="font-semibold text-white flex items-center gap-1.5">
+                    <FileText className="w-3.5 h-3.5 text-[#71d9ff]" />
+                    後端 SQL 檢索過濾結果（嚴格限制上限）：
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowRetrievedDataSnippet((prev) => !prev)}
+                    className="text-[11px] text-[#aa9cff] hover:underline flex items-center gap-1 cursor-pointer"
+                  >
+                    <span>{showRetrievedDataSnippet ? '隱藏' : '查看'} 注入之精簡純文字片段 ({'{{retrieved_data}}'})</span>
+                    {showRetrievedDataSnippet ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                  </button>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="p-2.5 rounded-xl bg-[#111425] border border-white/10 text-center">
+                    <div className="text-[11px] text-[#8d97b5]">匹配意象 (最多8項)</div>
+                    <div className="text-sm font-bold text-[#78e1b5] mt-0.5">
+                      {masterAnalysis.retrieved_counts.symbols} / 8 項
+                    </div>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-[#111425] border border-white/10 text-center">
+                    <div className="text-[11px] text-[#8d97b5]">匹配主題 (最多3項)</div>
+                    <div className="text-sm font-bold text-[#71d9ff] mt-0.5">
+                      {masterAnalysis.retrieved_counts.themes} / 3 項
+                    </div>
+                  </div>
+                  <div className="p-2.5 rounded-xl bg-[#111425] border border-white/10 text-center">
+                    <div className="text-[11px] text-[#8d97b5]">書籍規則片段 (最多4本)</div>
+                    <div className="text-sm font-bold text-[#aa9cff] mt-0.5">
+                      {masterAnalysis.retrieved_counts.books_and_rules} / 4 則
+                    </div>
+                  </div>
+                </div>
+
+                {/* Collapsible raw {{retrieved_data}} display */}
+                {showRetrievedDataSnippet && (
+                  <div className="mt-2 p-3 rounded-xl bg-[#090b16] border border-white/10 text-[11px] font-mono text-[#cbd2ef] whitespace-pre-wrap max-h-48 overflow-y-auto leading-relaxed">
+                    <div className="text-[10px] text-[#8d97b5] uppercase tracking-wider mb-1 font-sans border-b border-white/10 pb-1">
+                      {'{{retrieved_data}}'} 純文字片段內容：
+                    </div>
+                    {masterAnalysis.retrieved_data_used}
+                  </div>
+                )}
+              </div>
+
+              {/* Main Psychological Analysis Content (600-900 words) */}
+              <div className="p-5 sm:p-6 rounded-2xl bg-[#0d1020]/90 border border-white/10 text-white text-sm sm:text-base leading-relaxed whitespace-pre-wrap space-y-4 font-sans tracking-wide">
+                {masterAnalysis.analysis_text}
+              </div>
+
+              {/* Mandatory Disclaimer Box */}
+              <div className="p-3.5 rounded-xl bg-amber-400/10 border border-amber-400/25 text-amber-200 text-xs flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
+                  <span className="font-semibold">SOP 合規確認：{masterAnalysis.disclaimer}</span>
+                </div>
+                <span className="text-[11px] text-amber-300/80">嚴禁玄學算命與吉凶定論</span>
+              </div>
+
+              {/* Multi-turn Context Management & Follow-up Conversation (對話輪次管理) */}
+              <div className="pt-4 border-t border-white/10 space-y-3">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-[#aa9cff]" />
+                    <h3 className="text-xs font-bold text-white uppercase tracking-wider">
+                      深入追問此夢（對話輪次管理）
+                    </h3>
+                  </div>
+                  <span className="text-[11px] text-[#78e1b5]">
+                    僅攜帶上一輪壓縮摘要 (≤200 Token) · 不重傳檢索庫
+                  </span>
+                </div>
+
+                {/* Follow-up history list */}
+                {followUpHistory.length > 0 && (
+                  <div className="space-y-3">
+                    {followUpHistory.map((item, idx) => (
+                      <div key={idx} className="p-4 rounded-2xl bg-white/5 border border-white/10 space-y-2 text-xs">
+                        <div className="flex items-center gap-1.5 font-bold text-[#71d9ff]">
+                          <span>Q{idx + 1} 追問：</span>
+                          <span>{item.q}</span>
+                        </div>
+                        <div className="text-[#cbd2ef] whitespace-pre-wrap leading-relaxed border-t border-white/5 pt-2">
+                          {item.a}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {/* Follow-up input form */}
+                <div className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={followUpQuestion}
+                    onChange={(e) => setFollowUpQuestion(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendFollowUp();
+                      }
+                    }}
+                    placeholder="針對此夢進一步追問……（例如：夢中推不開的門在心理學上代表甚麼？）"
+                    className="flex-1 bg-[#111425] border border-white/15 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder:text-[#6a759b] focus:outline-none focus:border-[#aa9cff]"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleSendFollowUp}
+                    disabled={isFollowUpLoading || !followUpQuestion.trim()}
+                    className="btn text-xs px-4 py-2.5 flex items-center gap-1.5 shrink-0 cursor-pointer disabled:opacity-50"
+                  >
+                    {isFollowUpLoading ? (
+                      <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                     ) : (
                       <>
-                        <span>✨ 簡單分析夢境</span>
-                        <ArrowRight className="w-3.5 h-3.5" />
+                        <Send className="w-3.5 h-3.5" />
+                        <span>提交追問</span>
                       </>
                     )}
                   </button>
                 </div>
-              </>
-            )}
-          </section>
+              </div>
+            </section>
+          )}
 
           {/* STEP 1 RESULT: 簡單基本分析 (Quick Analysis Card) */}
           {quickReport && !activeReport && (
@@ -1118,6 +1602,8 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
       <TherapeuticSupportModal
         isOpen={isTherapeuticOpen}
         onClose={() => setIsTherapeuticOpen(false)}
+        therapists={therapists}
+        prefilledDreamText={dream}
       />
     </div>
   );

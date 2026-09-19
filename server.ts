@@ -16,7 +16,25 @@ import {
   saveConstellationData,
   getMysteryJourney,
   saveMysteryJourney,
+  getDbPool,
 } from './server/db';
+import {
+  preprocessDreamText,
+  executeSqlRetrieval,
+  assembleDreamMasterPrompt,
+  compressSummaryForFollowup,
+  postProcessAndFilterAnalysis,
+  generateFallbackMasterAnalysis,
+  SEED_BOOKS,
+  SEED_THEMES,
+  SEED_SYMBOLS,
+  SEED_ANALYSIS_RULES,
+} from './server/dreamMaster';
+import {
+  DREAM_BOOKS,
+  DREAM_TAGS,
+  DREAM_SYMBOLS,
+} from './server/dreamAstraData';
 
 dotenv.config();
 
@@ -476,13 +494,20 @@ app.put('/api/users/:id/stars', async (req, res) => {
 app.post('/api/dream/quick-analyze', async (req, res) => {
   try {
     const { dream, pastDreams } = req.body;
-    if (!dream || typeof dream !== 'string' || !dream.trim()) {
-      return res.status(400).json({ error: '請提供夢境內容' });
+    const preprocessed = preprocessDreamText(dream || '');
+    if (!preprocessed.isValid) {
+      return res.status(400).json({
+        error: preprocessed.errorMessage,
+        charCount: preprocessed.charCount,
+        minLength: 15,
+      });
     }
+
+    const cleanDream = preprocessed.cleanedText;
 
     const ai = getGeminiClient();
     if (!ai) {
-      const quickReport = fallbackQuickAnalyze(dream, pastDreams);
+      const quickReport = fallbackQuickAnalyze(cleanDream, pastDreams);
       return res.json({ report: quickReport, source: 'fallback' });
     }
 
@@ -570,25 +595,264 @@ app.post('/api/dream/quick-analyze', async (req, res) => {
   }
 });
 
+// 2.5 Dream Master SQL Retrieval SOP API (SOP 流程：預處理 -> SQL檢索過濾 -> 最小化Prompt -> 輸出過濾與輪次管理)
+app.post('/api/dream/master-analyze', async (req, res) => {
+  try {
+    const { user_dream, user_context, follow_up } = req.body;
+
+    // SOP Step 1 & 2: 接收使用者輸入與後端預處理使用者文本
+    const preprocessed = preprocessDreamText(user_dream || '');
+    if (!preprocessed.isValid) {
+      return res.status(400).json({
+        success: false,
+        error: 'insufficient_text',
+        message: preprocessed.errorMessage,
+        charCount: preprocessed.charCount,
+        minLength: 15,
+      });
+    }
+
+    const cleanedDream = preprocessed.cleanedText;
+
+    // SOP Step 3, 4, 5: 執行 SQL 檢索查詢，查詢表 books、dream_themes、dream_symbols、analysis_rules
+    // 強制檢索結果上限：意象最多 8 項，主題最多 3 項，參考書籍規則片段最多 4 本
+    const pool = getDbPool();
+    const retrieved = await executeSqlRetrieval(cleanedDream, pool);
+    const retrievedData = retrieved.formattedSnippet;
+
+    // SOP Step 6: 組裝請求內容，使用固定最小化系統提示詞，替換變數 {{retrieved_data}}、{{user_dream}}、{{user_context}}
+    const { systemInstruction, contents } = assembleDreamMasterPrompt(
+      retrievedData,
+      cleanedDream,
+      user_context,
+      follow_up
+    );
+
+    const ai = getGeminiClient();
+    let analysisText = '';
+    let source: 'gemini' | 'fallback' = 'gemini';
+
+    if (ai) {
+      try {
+        const responsePromise = ai.models.generateContent({
+          model: 'gemini-3.8-flash',
+          contents,
+          config: {
+            systemInstruction,
+            temperature: 0.35,
+            thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
+          },
+        });
+
+        const resp = await withTimeout(responsePromise, 15000, null);
+        if (resp && resp.text) {
+          analysisText = resp.text.trim();
+        }
+      } catch (err: any) {
+        console.warn('Gemini master-analyze failed, falling back:', err.message);
+      }
+    }
+
+    // 若未配置 API Key 或超時，啟動符合 SOP 的高品質本地心理學 Fallback
+    if (!analysisText) {
+      source = 'fallback';
+      analysisText = generateFallbackMasterAnalysis(cleanedDream, retrieved, user_context, follow_up);
+    }
+
+    // SOP Step 8: 輸出過濾規則
+    // - 禁止玄學算命、吉凶預言
+    // - 輸出必須包含備註「解夢僅心理參考，非命運預測」
+    // - 輸出字數控制 600-900 字
+    analysisText = postProcessAndFilterAnalysis(analysisText, cleanedDream);
+
+    // SOP Step 9: 對話輪次管理（壓縮上一輪解析摘要至 200token 以內，追問時不再重複傳送完整檢索數據）
+    const matchedSymbolNames = retrieved.symbols.map((s) => s.symbol_name);
+    const compressedSummary = compressSummaryForFollowup(analysisText, matchedSymbolNames);
+
+    return res.json({
+      success: true,
+      analysis_text: analysisText,
+      word_count: analysisText.length,
+      disclaimer: '解夢僅心理參考，非命運預測',
+      retrieved_data_used: retrievedData,
+      retrieved_counts: {
+        symbols: retrieved.symbols.length,
+        themes: retrieved.themes.length,
+        books_and_rules: retrieved.booksAndRules.length,
+      },
+      compressed_summary_for_followup: compressedSummary,
+      cleaned_dream: cleanedDream,
+      is_follow_up: Boolean(follow_up?.is_follow_up),
+      source,
+    });
+  } catch (err: any) {
+    console.error('Master analyze error:', err);
+    return res.status(500).json({ success: false, error: 'Internal server error', details: err.message });
+  }
+});
+
+// 2.6 Inspect SQL Dream Knowledge Base
+app.get('/api/dream/master-knowledge', async (req, res) => {
+  try {
+    const pool = getDbPool();
+    let books = SEED_BOOKS;
+    let themes = SEED_THEMES;
+    let symbols = SEED_SYMBOLS;
+    let rules = SEED_ANALYSIS_RULES;
+
+    let dreamBooks = DREAM_BOOKS;
+    let dreamTags = DREAM_TAGS;
+    let dreamSymbols = DREAM_SYMBOLS;
+
+    if (pool) {
+      try {
+        const b = await pool.query('SELECT * FROM books');
+        if (b.rows.length > 0) books = b.rows;
+        const t = await pool.query('SELECT * FROM dream_themes');
+        if (t.rows.length > 0) themes = t.rows;
+        const s = await pool.query('SELECT * FROM dream_symbols');
+        if (s.rows.length > 0) symbols = s.rows;
+        const r = await pool.query('SELECT * FROM analysis_rules');
+        if (r.rows.length > 0) rules = r.rows;
+
+        // DreamAstra Master tables
+        const dbBooks = await pool.query('SELECT * FROM dream_book ORDER BY book_id ASC');
+        if (dbBooks.rows.length > 0) dreamBooks = dbBooks.rows;
+
+        const dbTags = await pool.query('SELECT * FROM dream_tag ORDER BY tag_id ASC');
+        if (dbTags.rows.length > 0) dreamTags = dbTags.rows;
+
+        const dbSymbols = await pool.query('SELECT * FROM dream_symbol ORDER BY symbol_id ASC');
+        if (dbSymbols.rows.length > 0) {
+          dreamSymbols = dbSymbols.rows.map((row: any) => ({
+            symbol_id: row.symbol_id,
+            symbol: row.symbol,
+            alias_list: Array.isArray(row.alias_list) ? row.alias_list : (typeof row.alias_list === 'string' ? JSON.parse(row.alias_list) : []),
+            book_interpret_json: typeof row.book_interpret_json === 'string' ? JSON.parse(row.book_interpret_json) : row.book_interpret_json,
+            source_ref: row.source_ref,
+            notes: row.notes,
+            tag_ids: [],
+          }));
+        }
+      } catch (err: any) {
+        console.warn('Postgres read knowledge fallback:', err.message);
+      }
+    }
+
+    return res.json({
+      success: true,
+      stats: {
+        dream_books_count: dreamBooks.length,
+        dream_tags_count: dreamTags.length,
+        dream_symbols_count: dreamSymbols.length,
+        books_count: books.length,
+        themes_count: themes.length,
+        symbols_count: symbols.length,
+        rules_count: rules.length,
+      },
+      dream_books: dreamBooks,
+      dream_tags: dreamTags,
+      dream_symbols: dreamSymbols,
+      books,
+      themes,
+      symbols,
+      rules,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 2.6.1 Download or view DreamAstra complete Master SQL file
+app.get('/api/dream/master-sql', (req, res) => {
+  try {
+    const sqlPath = path.join(process.cwd(), 'server', 'sql', 'dreamastra_master.sql');
+    if (!fs.existsSync(sqlPath)) {
+      return res.status(404).json({ success: false, error: 'SQL file not found' });
+    }
+
+    if (req.query.download === '1') {
+      res.setHeader('Content-Disposition', 'attachment; filename="dreamastra_master.sql"');
+      res.setHeader('Content-Type', 'application/sql; charset=utf-8');
+      return res.sendFile(sqlPath);
+    }
+
+    const sqlContent = fs.readFileSync(sqlPath, 'utf8');
+    return res.json({
+      success: true,
+      filename: 'dreamastra_master.sql',
+      bytes: Buffer.byteLength(sqlContent, 'utf8'),
+      content: sqlContent,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// 2.7 Test SQL Retrieval for a Dream Text without Calling LLM
+app.post('/api/dream/master-retrieve', async (req, res) => {
+  try {
+    const { user_dream } = req.body;
+    const preprocessed = preprocessDreamText(user_dream || '');
+    if (!preprocessed.isValid) {
+      return res.status(400).json({
+        success: false,
+        error: 'insufficient_text',
+        message: preprocessed.errorMessage,
+        charCount: preprocessed.charCount,
+        minLength: 15,
+      });
+    }
+
+    const pool = getDbPool();
+    const retrieved = await executeSqlRetrieval(preprocessed.cleanedText, pool);
+
+    return res.json({
+      success: true,
+      cleaned_text: preprocessed.cleanedText,
+      char_count: preprocessed.charCount,
+      retrieved_data: retrieved.formattedSnippet,
+      counts: {
+        symbols: retrieved.symbols.length,
+        themes: retrieved.themes.length,
+        books_and_rules: retrieved.booksAndRules.length,
+        total: retrieved.totalItems,
+      },
+      symbols: retrieved.symbols,
+      themes: retrieved.themes,
+      books_and_rules: retrieved.booksAndRules,
+    });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // 3. Dream Analyze API with Gemini + Book Brain (Step 2: 深度分析)
 app.post('/api/dream/analyze', async (req, res) => {
   try {
     const { dream, settings, detectiveAnswers, pastDreams } = req.body;
-    if (!dream || typeof dream !== 'string' || !dream.trim()) {
-      return res.status(400).json({ error: '請提供夢境內容' });
+    const preprocessed = preprocessDreamText(dream || '');
+    if (!preprocessed.isValid) {
+      return res.status(400).json({
+        error: preprocessed.errorMessage,
+        charCount: preprocessed.charCount,
+        minLength: 15,
+      });
     }
+
+    const cleanDream = preprocessed.cleanedText;
 
     const ai = getGeminiClient();
     if (!ai) {
       // Fallback mode if GEMINI_API_KEY is not configured
-      const report = fallbackAnalyze(dream, settings, pastDreams);
+      const report = fallbackAnalyze(cleanDream, settings, pastDreams);
       if (detectiveAnswers) {
         report.detectiveAnswers = detectiveAnswers;
       }
       const entry = {
         id: 'dream_' + Date.now(),
         title: report.title,
-        dream_text: dream,
+        dream_text: cleanDream,
         created_at: new Date().toISOString(),
         report_json: report,
       };
@@ -612,7 +876,7 @@ DreamWisdom 唔係憑空估，而係先從 Book Brain 找出相關理論，再�
 5. 必須以繁體中文撰寫，符合 JSON Schema。
 `;
 
-    let prompt = `請分析以下夢境，先從 Book Brain 找出相關理論，再結合用戶過往夢境，整理出可能值得留意嘅訊息，並給予當代東方文化層與榮格心理學的四層立體解析：\n夢境記述：\n"${dream}"\n`;
+    let prompt = `請分析以下夢境，先從 Book Brain 找出相關理論，再結合用戶過往夢境，整理出可能值得留意嘅訊息，並給予當代東方文化層與榮格心理學的四層立體解析：\n夢境記述：\n"${cleanDream}"\n`;
     if (detectiveAnswers && Object.keys(detectiveAnswers).length > 0) {
       prompt += `\n【偵探確認校準資訊】：\n${JSON.stringify(detectiveAnswers, null, 2)}\n請在報告中展現「現在這個夢的意思已經和普通模板不同了」的專屬感。\n`;
     }
@@ -714,14 +978,14 @@ DreamWisdom 唔係憑空估，而係先從 Book Brain 找出相關理論，再�
     const response = await withTimeout(responsePromise, 8000, null);
 
     if (!response || !response.text) {
-      const fallback = fallbackAnalyze(dream, settings, pastDreams);
+      const fallback = fallbackAnalyze(cleanDream, settings, pastDreams);
       if (detectiveAnswers) fallback.detectiveAnswers = detectiveAnswers;
       return res.json({
         report: fallback,
         entry: {
           id: 'dream_' + Date.now(),
           title: fallback.title,
-          dream_text: dream,
+          dream_text: cleanDream,
           created_at: new Date().toISOString(),
           report_json: fallback,
         },
@@ -734,7 +998,7 @@ DreamWisdom 唔係憑空估，而係先從 Book Brain 找出相關理論，再�
 
     // Fallback fill for bookBrainTheory and noteworthyMessage if missing
     if (!report.bookBrainTheory) {
-      const defaultFallback = fallbackAnalyze(dream, settings, pastDreams);
+      const defaultFallback = fallbackAnalyze(cleanDream, settings, pastDreams);
       report.bookBrainTheory = defaultFallback.bookBrainTheory;
       report.pastDreamComparison = defaultFallback.pastDreamComparison;
       report.noteworthyMessage = defaultFallback.noteworthyMessage;
@@ -742,7 +1006,7 @@ DreamWisdom 唔係憑空估，而係先從 Book Brain 找出相關理論，再�
 
     // Complement with fourLayers if missing
     if (!report.fourLayers) {
-      const fallback = fallbackAnalyze(dream, settings);
+      const fallback = fallbackAnalyze(cleanDream, settings);
       report.fourLayers = fallback.fourLayers;
     }
     if (detectiveAnswers) {
@@ -752,7 +1016,7 @@ DreamWisdom 唔係憑空估，而係先從 Book Brain 找出相關理論，再�
     const entry = {
       id: 'dream_' + Date.now(),
       title: report.title,
-      dream_text: dream,
+      dream_text: cleanDream,
       created_at: new Date().toISOString(),
       report_json: report,
     };

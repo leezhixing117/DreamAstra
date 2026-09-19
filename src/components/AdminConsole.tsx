@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { BookBrainItem, EngineSettings, User, UserRole, ProductItem, AdVideoItem, normalizeRole, getRoleDisplayName } from '../types';
+import { BookBrainItem, EngineSettings, User, UserRole, ProductItem, AdVideoItem, TherapistItem, normalizeRole, getRoleDisplayName } from '../types';
 import { INITIAL_PRODUCTS } from '../data/products';
 import { INITIAL_AD_VIDEOS } from '../data';
-import { BookOpen, Sliders, Users, Upload, Check, AlertCircle, RefreshCw, UserCheck, Trash2, Edit3, Plus, ShieldCheck, ShieldAlert, Star, Crown, Settings, ShoppingBag, Package, Sparkles, Tv, Play, Video, Eye } from 'lucide-react';
+import { INITIAL_THERAPISTS } from '../data/therapists';
+import { BookOpen, Sliders, Users, Upload, Check, AlertCircle, RefreshCw, UserCheck, Trash2, Edit3, Plus, ShieldCheck, ShieldAlert, Star, Crown, Settings, ShoppingBag, Package, Sparkles, Tv, Play, Video, Eye, Heart } from 'lucide-react';
+import { TherapistAdminManager } from './TherapistAdminManager';
 
 interface BookTheoryItem {
   id: string;
@@ -49,6 +51,7 @@ interface AdminConsoleProps {
   initialSettings: EngineSettings;
   initialProducts?: ProductItem[];
   initialAdVideos?: AdVideoItem[];
+  initialTherapists?: TherapistItem[];
   currentUserId: string;
   currentUserRole?: UserRole;
   onUpdateSettings: (settings: EngineSettings) => void;
@@ -56,6 +59,7 @@ interface AdminConsoleProps {
   onUpdateBooks?: (books: BookBrainItem[]) => void;
   onUpdateProducts?: (products: ProductItem[]) => void;
   onUpdateAdVideos?: (adVideos: AdVideoItem[]) => void;
+  onUpdateTherapists?: (therapists: TherapistItem[]) => void;
   onSwitchUser?: (user: User) => void;
 }
 
@@ -65,6 +69,7 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
   initialSettings,
   initialProducts = INITIAL_PRODUCTS,
   initialAdVideos = INITIAL_AD_VIDEOS,
+  initialTherapists = INITIAL_THERAPISTS,
   currentUserId,
   currentUserRole = 'super_admin',
   onUpdateSettings,
@@ -72,11 +77,31 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
   onUpdateBooks,
   onUpdateProducts,
   onUpdateAdVideos,
+  onUpdateTherapists,
   onSwitchUser,
 }) => {
-  const [activeTab, setActiveTab] = useState<'books' | 'theories' | 'products' | 'advideos' | 'engine' | 'users'>('books');
+  const [activeTab, setActiveTab] = useState<'books' | 'theories' | 'products' | 'advideos' | 'therapists' | 'engine' | 'users'>('books');
   const [books, setBooks] = useState<BookBrainItem[]>(initialBooks);
   const [products, setProducts] = useState<ProductItem[]>(initialProducts);
+  const [therapists, setTherapists] = useState<TherapistItem[]>(() => {
+    if (initialTherapists && initialTherapists.length > 0) return initialTherapists;
+    try {
+      const saved = localStorage.getItem('dreamwisdom_therapists');
+      return saved ? JSON.parse(saved) : INITIAL_THERAPISTS;
+    } catch {
+      return INITIAL_THERAPISTS;
+    }
+  });
+
+  const handleSaveTherapists = (updated: TherapistItem[]) => {
+    setTherapists(updated);
+    if (onUpdateTherapists) {
+      onUpdateTherapists(updated);
+    }
+    try {
+      localStorage.setItem('dreamwisdom_therapists', JSON.stringify(updated));
+    } catch {}
+  };
   const [adVideos, setAdVideos] = useState<AdVideoItem[]>(() => {
     try {
       const saved = localStorage.getItem('dreamwisdom_ad_videos');
@@ -559,6 +584,20 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
         >
           <Package className="w-4 h-4 text-emerald-400" />
           <span>🌿 解夢選物產品庫 ({products.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setActiveTab('therapists')}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
+            activeTab === 'therapists'
+              ? 'bg-[#78e1b5]/20 text-[#78e1b5] border border-[#78e1b5]/40 shadow-sm'
+              : 'text-[#aab3d2] hover:text-white bg-white/5 border border-transparent'
+          }`}
+          id="admin-therapists-tab-btn"
+        >
+          <Heart className="w-4 h-4 text-[#78e1b5]" />
+          <span>🧘 治療師資料庫 ({therapists.length})</span>
         </button>
 
         <button
@@ -1746,6 +1785,15 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
             </table>
           </div>
         </section>
+      )}
+      {/* TAB: THERAPISTS REPOSITORY & MATCHING */}
+      {activeTab === 'therapists' && (
+        <TherapistAdminManager
+          therapists={therapists}
+          onSaveTherapists={handleSaveTherapists}
+          currentUserRole={currentUserRole}
+          currentUserId={currentUserId}
+        />
       )}
     </div>
   );

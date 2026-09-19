@@ -95,7 +95,7 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
           <div className="text-[11px] text-[#8d97b5] uppercase tracking-wider mb-1 font-semibold flex items-center justify-between">
             <span>原始夢境記述</span>
             {entry.rawCantoneseTranscription && (
-              <span className="text-[#78e1b5] font-mono">🎙️ 廣東話自然語音記錄</span>
+              <span className="text-[#78e1b5] font-mono">🎙️ 語音記述存檔</span>
             )}
           </div>
           <p className="text-sm text-[#cbd2ef] leading-relaxed italic">

@@ -4,8 +4,9 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { User, BookBrainItem, EngineSettings, DreamEntry, AdVideoItem, normalizeRole, getRoleDisplayName } from './types';
+import { User, BookBrainItem, EngineSettings, DreamEntry, AdVideoItem, TherapistItem, ProductItem, normalizeRole, getRoleDisplayName } from './types';
 import { INITIAL_USERS, INITIAL_BOOKS, INITIAL_SETTINGS, INITIAL_DREAMS, INITIAL_AD_VIDEOS } from './data';
+import { INITIAL_THERAPISTS } from './data/therapists';
 import { Navbar } from './components/Navbar';
 import { Sidebar } from './components/Sidebar';
 import { HomeView } from './components/HomeView';
@@ -17,7 +18,6 @@ import { PricingView } from './components/PricingView';
 import { PrivacyView } from './components/PrivacyView';
 import { ProductStoreView } from './components/ProductStoreView';
 import { Footer } from './components/Footer';
-import { ProductItem } from './types';
 import { INITIAL_PRODUCTS } from './data/products';
 import { Sparkles, ShieldAlert, BookOpen, Star, Package, Tv } from 'lucide-react';
 
@@ -47,6 +47,16 @@ export default function App() {
       return saved ? JSON.parse(saved) : INITIAL_AD_VIDEOS;
     } catch {
       return INITIAL_AD_VIDEOS;
+    }
+  });
+
+  // Therapist Directory state
+  const [therapists, setTherapists] = useState<TherapistItem[]>(() => {
+    try {
+      const saved = localStorage.getItem('dreamwisdom_therapists');
+      return saved ? JSON.parse(saved) : INITIAL_THERAPISTS;
+    } catch {
+      return INITIAL_THERAPISTS;
     }
   });
 
@@ -197,6 +207,10 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('dreamwisdom_ad_videos', JSON.stringify(adVideos));
   }, [adVideos]);
+
+  useEffect(() => {
+    localStorage.setItem('dreamwisdom_therapists', JSON.stringify(therapists));
+  }, [therapists]);
 
   // Navigate handler
   const handleNavigate = (
@@ -395,6 +409,7 @@ export default function App() {
           onGoToAdmin={() => setCurrentView('admin')}
           onGoToPricing={() => handleNavigate('pricing')}
           onGoToPrivacy={() => handleNavigate('privacy')}
+          therapists={therapists}
         />
       )}
 
@@ -495,6 +510,7 @@ export default function App() {
                   setTargetProductId(prodId);
                   handleNavigate('store');
                 }}
+                therapists={therapists}
               />
             </div>
           </div>
@@ -568,6 +584,7 @@ export default function App() {
                     initialSettings={settings}
                     initialProducts={products}
                     initialAdVideos={adVideos}
+                    initialTherapists={therapists}
                     currentUserId={currentUser.id}
                     currentUserRole={currentUser.role}
                     onUpdateSettings={handleUpdateSettings}
@@ -575,6 +592,7 @@ export default function App() {
                     onUpdateBooks={handleUpdateBooks}
                     onUpdateProducts={(updated) => setProducts(updated)}
                     onUpdateAdVideos={(updated) => setAdVideos(updated)}
+                    onUpdateTherapists={(updated) => setTherapists(updated)}
                     onSwitchUser={handleSwitchUser}
                   />
                 </>
