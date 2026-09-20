@@ -13,8 +13,9 @@ export const Footer: React.FC<FooterProps> = ({
   onOpenEarnStars,
 }) => {
   return (
-    <footer className="w-full border-t border-white/10 bg-[#060814] text-[#8d97b5] text-xs mt-auto pt-10 pb-12" id="global-site-footer">
+    <footer className="w-full border-t border-white/10 bg-[#060814]/75 backdrop-blur-2xl text-[#8d97b5] text-xs mt-auto pt-10 pb-12" id="global-site-footer">
       <div className="shell max-w-6xl mx-auto px-4">
+
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-8">
           {/* Brand Col */}
           <div className="space-y-3 md:col-span-1">

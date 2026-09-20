@@ -20,6 +20,7 @@ import { ProductStoreView } from './components/ProductStoreView';
 import { Footer } from './components/Footer';
 import { INITIAL_PRODUCTS } from './data/products';
 import { Sparkles, ShieldAlert, BookOpen, Star, Package, Tv } from 'lucide-react';
+import { DreamAtmosphereController } from './components/DreamAtmosphereController';
 
 export default function App() {
   // Load or initialize state from localStorage
@@ -29,6 +30,12 @@ export default function App() {
   const [isStarVideoOpen, setIsStarVideoOpen] = useState(false);
   const [prefilledDream, setPrefilledDream] = useState('');
   const [targetProductId, setTargetProductId] = useState<string | undefined>(undefined);
+
+  // Full-screen Dream Atmosphere & Wallpaper state
+  const [wallpaperOpacity, setWallpaperOpacity] = useState<number>(0.72);
+  const [wallpaperBlur, setWallpaperBlur] = useState<number>(0);
+  const [wallpaperTint, setWallpaperTint] = useState<'aurora' | 'twilight' | 'cyber' | 'deep'>('aurora');
+
 
   // Products catalog state
   const [products, setProducts] = useState<ProductItem[]>(() => {
@@ -386,8 +393,44 @@ export default function App() {
   const normRole = currentUser ? normalizeRole(currentUser.role) : null;
   const isManagement = normRole === 'admin' || normRole === 'super_admin';
 
+  // Dynamic tint gradient based on user selection
+  const tintGradient = {
+    aurora: 'from-[#060814]/40 via-[#0a1226]/30 to-[#060917]/60',
+    twilight: 'from-[#0e0717]/40 via-[#140b20]/30 to-[#070510]/60',
+    cyber: 'from-[#080d20]/40 via-[#0c142c]/30 to-[#050814]/60',
+    deep: 'from-[#030610]/45 via-[#050e1e]/35 to-[#02040c]/65',
+  }[wallpaperTint];
+
   return (
-    <div className="min-h-screen flex flex-col text-[#f6f7ff]" id="dreamwisdom-app-root">
+    <div className="min-h-screen flex flex-col text-[#f6f7ff] relative selection:bg-[#aa9cff]/30 selection:text-white" id="dreamwisdom-app-root">
+      {/* 🌟 IMMERSIVE FULL-PAGE DREAMSCAPE COVER WALLPAPER LAYER 🌟 */}
+      <div
+        className="fixed inset-0 pointer-events-none -z-10 overflow-hidden transition-all duration-700"
+        id="app-fullpage-dream-cover"
+        style={{
+          opacity: wallpaperOpacity,
+        }}
+      >
+        <img
+          src="/dream_cover_banner.jpg"
+          alt="Dreamscape Universe Full-Page Cover"
+          referrerPolicy="no-referrer"
+          className="w-full h-full object-cover object-center transition-all duration-700"
+          style={{
+            filter: wallpaperBlur > 0 ? `blur(${wallpaperBlur}px) saturate(140%)` : 'saturate(140%)',
+            transform: 'scale(1.02)',
+          }}
+        />
+        {/* Dynamic Aesthetic Tint Gradient - subtle to let artwork shine */}
+        <div className={`absolute inset-0 bg-gradient-to-b ${tintGradient}`} />
+        {/* Radial Vignette for cinematic focus */}
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,transparent_0%,rgba(6,8,16,0.35)_70%,rgba(5,7,14,0.75)_100%)]" />
+      </div>
+
+      {/* Atmospheric dynamic floating ambient glows for extra modern vibe */}
+      <div className="fixed -top-40 -left-40 w-[600px] h-[600px] bg-[#aa9cff]/15 rounded-full blur-[140px] pointer-events-none -z-10 glow-ambient-orb" />
+      <div className="fixed top-1/3 -right-40 w-[550px] h-[550px] bg-[#71d9ff]/12 rounded-full blur-[150px] pointer-events-none -z-10 glow-ambient-orb" style={{ animationDelay: '-5s' }} />
+
       {/* Global Top Navbar */}
       <Navbar
         currentView={currentView}
@@ -397,6 +440,7 @@ export default function App() {
         onLogout={handleLogout}
         onOpenEarnStars={() => setIsStarVideoOpen(true)}
       />
+
 
       {/* Main View Switcher */}
       {currentView === 'home' && (
@@ -624,6 +668,17 @@ export default function App() {
         currentStars={currentUser?.stars ?? 2}
         adVideos={adVideos}
       />
+
+      {/* Floating Atmosphere Customizer Widget */}
+      <DreamAtmosphereController
+        opacity={wallpaperOpacity}
+        setOpacity={setWallpaperOpacity}
+        blur={wallpaperBlur}
+        setBlur={setWallpaperBlur}
+        tint={wallpaperTint}
+        setTint={setWallpaperTint}
+      />
     </div>
   );
 }
+

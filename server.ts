@@ -1,5 +1,6 @@
 import express from 'express';
 import path from 'path';
+import fs from 'fs';
 import { GoogleGenAI, Type, ThinkingLevel } from '@google/genai';
 import dotenv from 'dotenv';
 import {
@@ -722,7 +723,13 @@ app.get('/api/dream/master-knowledge', async (req, res) => {
         const dbTags = await pool.query('SELECT * FROM dream_tag ORDER BY tag_id ASC');
         if (dbTags.rows.length > 0) dreamTags = dbTags.rows;
 
-        const dbSymbols = await pool.query('SELECT * FROM dream_symbol ORDER BY symbol_id ASC');
+        const dbSymbols = await pool.query(`
+          SELECT s.*, COALESCE(json_agg(st.tag_id) FILTER (WHERE st.tag_id IS NOT NULL), '[]'::json) as tag_ids
+          FROM dream_symbol s
+          LEFT JOIN dream_symbol_tag st ON s.symbol_id = st.symbol_id
+          GROUP BY s.symbol_id
+          ORDER BY s.symbol_id ASC
+        `);
         if (dbSymbols.rows.length > 0) {
           dreamSymbols = dbSymbols.rows.map((row: any) => ({
             symbol_id: row.symbol_id,
@@ -731,7 +738,7 @@ app.get('/api/dream/master-knowledge', async (req, res) => {
             book_interpret_json: typeof row.book_interpret_json === 'string' ? JSON.parse(row.book_interpret_json) : row.book_interpret_json,
             source_ref: row.source_ref,
             notes: row.notes,
-            tag_ids: [],
+            tag_ids: Array.isArray(row.tag_ids) ? row.tag_ids : (typeof row.tag_ids === 'string' ? JSON.parse(row.tag_ids) : []),
           }));
         }
       } catch (err: any) {

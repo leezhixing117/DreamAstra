@@ -9,6 +9,7 @@ import { DreamConstellationView } from './DreamConstellationView';
 import { ThirtyNightsMysteryView } from './ThirtyNightsMysteryView';
 import { DreamJournalManager } from './DreamJournalManager';
 import { TherapeuticSupportModal } from './TherapeuticSupportModal';
+import { DreamPortalModal } from './DreamPortalModal';
 import {
   Sparkles,
   Brain,
@@ -74,6 +75,7 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
   const [dream, setDream] = useState(prefilledDream);
   const [isDetectiveOpen, setIsDetectiveOpen] = useState(false);
   const [isTherapeuticOpen, setIsTherapeuticOpen] = useState(false);
+  const [isPortalModalOpen, setIsPortalModalOpen] = useState(false);
 
   // Loading states
   const [isQuickAnalyzing, setIsQuickAnalyzing] = useState(false);
@@ -583,6 +585,50 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
         >
           <Heart className="w-3.5 h-3.5 text-[#78e1b5]" />
           <span>後續療癒支援</span>
+        </button>
+      </div>
+
+      {/* Visual Dreamscape Portal Banner */}
+      <div className="relative rounded-2xl overflow-hidden border border-[#aa9cff]/30 glass-modern p-4 sm:p-4.5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl shadow-[#aa9cff]/10">
+        {/* Background artwork glow */}
+        <div className="absolute inset-0 opacity-25 pointer-events-none">
+          <img
+            src="/dream_cover_banner.jpg"
+            alt="Dreamscape Portal"
+            referrerPolicy="no-referrer"
+            className="w-full h-full object-cover object-center filter blur-[1.5px]"
+          />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#0e1329]/90 via-[#0e1329]/60 to-[#0e1329]/90" />
+        </div>
+
+        
+        <div className="relative z-10 flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-[#aa9cff]/40 shadow-md">
+            <img
+              src="/dream_cover_vertical.jpg"
+              alt="Cover Mini"
+              referrerPolicy="no-referrer"
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-white tracking-wide">夢境星圖門戶 · 92項意象解密庫</span>
+              <span className="text-[10px] px-2 py-0.2 rounded-full bg-[#78e1b5]/15 text-[#78e1b5] border border-[#78e1b5]/30 font-medium">全庫連線中</span>
+            </div>
+            <p className="text-[11px] text-[#aab3d2] mt-0.5">
+              每一場夢都在為你的星圖注入全新座標。輸入真實夢境，AI 立即由 22 本經典文獻展開深度心理學投射。
+            </p>
+          </div>
+        </div>
+
+        <button
+          type="button"
+          onClick={() => setIsPortalModalOpen(true)}
+          className="relative z-10 shrink-0 text-xs px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white border border-white/15 flex items-center gap-1.5 transition-all cursor-pointer"
+        >
+          <Sparkles className="w-3.5 h-3.5 text-[#aa9cff]" />
+          <span>意象全解析</span>
         </button>
       </div>
 
@@ -1604,6 +1650,15 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
         onClose={() => setIsTherapeuticOpen(false)}
         therapists={therapists}
         prefilledDreamText={dream}
+      />
+
+      {/* Dreamscape Subconscious Portal Modal */}
+      <DreamPortalModal
+        isOpen={isPortalModalOpen}
+        onClose={() => setIsPortalModalOpen(false)}
+        onSelectSymbolPrompt={(text) => {
+          setDream((prev) => (prev.trim() ? `${prev.trim()}，${text}` : text));
+        }}
       />
     </div>
   );

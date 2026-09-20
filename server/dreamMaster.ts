@@ -325,16 +325,29 @@ export async function initDreamMasterTables(pool: Pool | null) {
         keywords JSONB DEFAULT '[]'::jsonb
       );
 
-      -- DreamAstra Master Schema (22 本權威心理學書籍 + 6 標籤 + 100 意象 + 標籤關聯)
+      -- DreamAstra Master Schema (22 本權威心理學書籍 + 7 標籤 + 92 意象 + 標籤關聯)
       CREATE TABLE IF NOT EXISTS dream_book (
         book_id SERIAL PRIMARY KEY,
         book_name VARCHAR(255) NOT NULL UNIQUE,
+        title_zh VARCHAR(255),
+        title_en VARCHAR(255),
         book_name_en VARCHAR(255),
         author VARCHAR(128),
         school VARCHAR(64),
         global_weight REAL DEFAULT 0.50,
+        core_theory TEXT,
+        process JSONB DEFAULT '[]'::jsonb,
+        forbidden JSONB DEFAULT '[]'::jsonb,
+        scene_match JSONB DEFAULT '[]'::jsonb,
         description TEXT
       );
+
+      ALTER TABLE dream_book ADD COLUMN IF NOT EXISTS title_zh VARCHAR(255);
+      ALTER TABLE dream_book ADD COLUMN IF NOT EXISTS title_en VARCHAR(255);
+      ALTER TABLE dream_book ADD COLUMN IF NOT EXISTS core_theory TEXT;
+      ALTER TABLE dream_book ADD COLUMN IF NOT EXISTS process JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE dream_book ADD COLUMN IF NOT EXISTS forbidden JSONB DEFAULT '[]'::jsonb;
+      ALTER TABLE dream_book ADD COLUMN IF NOT EXISTS scene_match JSONB DEFAULT '[]'::jsonb;
 
       CREATE TABLE IF NOT EXISTS dream_tag (
         tag_id SERIAL PRIMARY KEY,
@@ -362,50 +375,95 @@ export async function initDreamMasterTables(pool: Pool | null) {
     `);
 
     // Seed DreamAstra Books (22 books)
-    const dreamBookCount = await client.query('SELECT COUNT(*) FROM dream_book');
-    if (parseInt(dreamBookCount.rows[0].count, 10) === 0) {
-      for (const b of DREAM_BOOKS) {
-        await client.query(
-          `INSERT INTO dream_book (book_id, book_name, book_name_en, author, school, global_weight, description)
-           VALUES ($1, $2, $3, $4, $5, $6, $7) ON CONFLICT (book_name) DO UPDATE 
-           SET author = EXCLUDED.author, school = EXCLUDED.school, global_weight = EXCLUDED.global_weight, description = EXCLUDED.description`,
-          [b.book_id, b.book_name, b.book_name_en, b.author, b.school, b.global_weight, b.description]
-        );
-      }
+    for (const b of DREAM_BOOKS) {
+      await client.query(
+        `INSERT INTO dream_book (book_id, book_name, title_zh, title_en, book_name_en, author, school, global_weight, core_theory, process, forbidden, scene_match, description)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+         ON CONFLICT (book_name) DO UPDATE 
+         SET title_zh = EXCLUDED.title_zh,
+             title_en = EXCLUDED.title_en,
+             book_name_en = EXCLUDED.book_name_en,
+             author = EXCLUDED.author,
+             school = EXCLUDED.school,
+             global_weight = EXCLUDED.global_weight,
+             core_theory = EXCLUDED.core_theory,
+             process = EXCLUDED.process,
+             forbidden = EXCLUDED.forbidden,
+             scene_match = EXCLUDED.scene_match,
+             description = EXCLUDED.description`,
+        [
+          b.book_id,
+          b.book_name,
+          b.title_zh || b.book_name,
+          b.title_en || b.book_name_en,
+          b.book_name_en || b.title_en,
+          b.author,
+          b.school,
+          b.global_weight,
+          b.core_theory,
+          JSON.stringify(b.process || []),
+          JSON.stringify(b.forbidden || []),
+          JSON.stringify(b.scene_match || []),
+          b.description || b.core_theory,
+        ]
+      );
     }
 
-    // Seed DreamAstra Tags (6 tags)
-    const dreamTagCount = await client.query('SELECT COUNT(*) FROM dream_tag');
-    if (parseInt(dreamTagCount.rows[0].count, 10) === 0) {
-      for (const t of DREAM_TAGS) {
-        await client.query(
-          `INSERT INTO dream_tag (tag_id, tag_name, tag_desc)
-           VALUES ($1, $2, $3) ON CONFLICT (tag_name) DO UPDATE SET tag_desc = EXCLUDED.tag_desc`,
-          [t.tag_id, t.tag_name, t.tag_desc]
-        );
-      }
+    // Seed DreamAstra Tags (7 tags)
+    for (const t of DREAM_TAGS) {
+      await client.query(
+        `INSERT INTO dream_tag (tag_id, tag_name, tag_desc)
+         VALUES ($1, $2, $3)
+         ON CONFLICT (tag_id) DO UPDATE SET tag_name = EXCLUDED.tag_name, tag_desc = EXCLUDED.tag_desc`,
+        [t.tag_id, t.tag_name, t.tag_desc]
+      );
     }
 
-    // Seed DreamAstra Symbols (100 symbols)
-    const dreamSymCount = await client.query('SELECT COUNT(*) FROM dream_symbol');
-    if (parseInt(dreamSymCount.rows[0].count, 10) === 0) {
-      for (const s of DREAM_SYMBOLS) {
-        await client.query(
-          `INSERT INTO dream_symbol (symbol_id, symbol, alias_list, book_interpret_json, source_ref, notes)
-           VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (symbol) DO UPDATE 
-           SET alias_list = EXCLUDED.alias_list, book_interpret_json = EXCLUDED.book_interpret_json, source_ref = EXCLUDED.source_ref, notes = EXCLUDED.notes`,
-          [s.symbol_id, s.symbol, JSON.stringify(s.alias_list), JSON.stringify(s.book_interpret_json), s.source_ref, s.notes]
-        );
-
-        for (const tid of s.tag_ids) {
-          await client.query(
-            `INSERT INTO dream_symbol_tag (symbol_id, tag_id)
-             VALUES ($1, $2) ON CONFLICT (symbol_id, tag_id) DO NOTHING`,
-            [s.symbol_id, tid]
-          );
-        }
-      }
+    // Seed DreamAstra Symbols (92 symbols)
+    for (const s of DREAM_SYMBOLS) {
+      await client.query(
+        `INSERT INTO dream_symbol (symbol_id, symbol, alias_list, book_interpret_json, source_ref, notes)
+         VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (symbol) DO UPDATE 
+         SET alias_list = EXCLUDED.alias_list,
+             book_interpret_json = EXCLUDED.book_interpret_json,
+             source_ref = EXCLUDED.source_ref,
+             notes = EXCLUDED.notes`,
+        [s.symbol_id, s.symbol, JSON.stringify(s.alias_list), JSON.stringify(s.book_interpret_json), s.source_ref, s.notes]
+      );
     }
+
+    // Direct User Batch Queries for dream_symbol_tag
+    await client.query(`
+      DELETE FROM dream_symbol_tag;
+
+      INSERT INTO dream_symbol_tag(symbol_id, tag_id)
+      SELECT symbol_id, 1 FROM dream_symbol WHERE symbol IN ('祖母','祖父','小偷','流浪漢','女巫','醫生','小孩','敵人','司機','聖者／隱士')
+      ON CONFLICT (symbol_id, tag_id) DO NOTHING;
+
+      INSERT INTO dream_symbol_tag(symbol_id, tag_id)
+      SELECT symbol_id, 2 FROM dream_symbol WHERE symbol IN ('鹿','貓','孔雀','綿羊','蝙蝠','狼','馬','蛇','鷹','老鼠')
+      ON CONFLICT (symbol_id, tag_id) DO NOTHING;
+
+      INSERT INTO dream_symbol_tag(symbol_id, tag_id)
+      SELECT symbol_id, 3 FROM dream_symbol WHERE symbol IN ('圖書館','港口','旅館／酒店','墳墓','森林','學校','橋','家／房屋','洞穴','山','地下室','天台','監獄','醫院','沙漠','海洋','河流','超市','車站','教堂')
+      ON CONFLICT (symbol_id, tag_id) DO NOTHING;
+
+      INSERT INTO dream_symbol_tag(symbol_id, tag_id)
+      SELECT symbol_id, 4 FROM dream_symbol WHERE symbol IN ('眼睛','心臟','牙齒','皮膚','頭','手','腳','血','骨頭','頭髮')
+      ON CONFLICT (symbol_id, tag_id) DO NOTHING;
+
+      INSERT INTO dream_symbol_tag(symbol_id, tag_id)
+      SELECT symbol_id, 5 FROM dream_symbol WHERE symbol IN ('追逐','尋找東西','溺水','墜落','考試／答不出題','遲到','飛翔','躲藏','殺人','死亡','奔跑','迷路','受傷','結婚','分手','開槍','被綁','斷電','洪水','火災','地震','裸體')
+      ON CONFLICT (symbol_id, tag_id) DO NOTHING;
+
+      INSERT INTO dream_symbol_tag(symbol_id, tag_id)
+      SELECT symbol_id, 6 FROM dream_symbol WHERE symbol IN ('追逐','溺水','墜落','考試／答不出題','牙齒','洪水','地震')
+      ON CONFLICT (symbol_id, tag_id) DO NOTHING;
+
+      INSERT INTO dream_symbol_tag(symbol_id, tag_id)
+      SELECT symbol_id, 7 FROM dream_symbol WHERE symbol IN ('鑰匙','鏡子','船','燈籠／燈','衣服','寶石','錢／金錢','門','鐘錶／時鐘','武器','書本','車輛','梯子','窗','鎖','劍','花朵','種子','面具','棺材')
+      ON CONFLICT (symbol_id, tag_id) DO NOTHING;
+    `);
 
     // Seed books if empty
     const bookCount = await client.query('SELECT COUNT(*) FROM books');
@@ -552,28 +610,33 @@ export async function executeSqlRetrieval(
   // Helper for symbol emojis
   function getSymbolEmoji(sym: string): string {
     const map: Record<string, string> = {
-      '水': '🌊', '飛翔': '🦅', '牙齒脫落': '🦷', '墜落': '🪂', '追逐': '🏃',
-      '火': '🔥', '房子': '🏠', '死亡': '💀', '考試': '📝', '蛇': '🐍',
-      '迷路': '🧭', '車禍': '🚗', '裸體': '👤', '懷孕': '🤰', '貓': '🐱',
-      '狗': '🐕', '大便': '💩', '錢': '💰', '親人離世': '🕯️', '高處': '🏔️',
-      '鏡子': '🪞', '電梯': '🛗', '海浪': '🌊', '時鐘': '⏰', '鞋子': '👟',
-      '鑰匙': '🔑', '門': '🚪', '窗戶': '🪟', '森林': '🌲', '花': '🌸',
-      '鳥': '🕊️', '魚': '🐟', '蜘蛛': '🕷️', '老虎': '🐅', '狼': '🐺',
-      '血': '🩸', '眼淚': '💧', '受傷': '🩹', '醫生': '🩺', '警察': '👮',
-      '陌生人': '👥', '前任': '💔', '結婚': '💍', '嬰兒': '👶', '老人': '👴',
-      '小偷': '🦹', '監獄': '⛓️', '迷宮': '🌀', '廢墟': '🏛️', '橋': '🌉',
-      '樓梯': '🪜', '地下室': '🏚️', '閣樓': '🏠', '學校': '🏫', '醫院': '🏥',
-      '墓地': '🪦', '飛機': '✈️', '火車': '🚆', '船': '🚢', '自行車': '🚲',
-      '電話': '📱', '電腦': '💻', '信件': '✉️', '書': '📖', '刀': '🔪',
-      '槍': '🔫', '面具': '🎭', '珠寶': '💎', '禮物': '🎁', '食物': '🍲',
-      '雨': '🌧️', '雪': '❄️', '風': '💨', '雷電': '⚡', '地震': '🌋',
-      '太陽': '☀️', '月亮': '🌙', '星星': '⭐', '彩虹': '🌈', '黑暗': '🌑',
-      '光': '✨', '影子': '👤', '怪物': '👹', '鬼魂': '👻', '天使': '👼',
-      '惡魔': '👿', '巨浪': '🌊', '深淵': '🕳️', '廢棄建築': '🏚️', '迷霧': '🌫️',
-      '時光倒流': '⏳', '隱形': '🫥', '漂浮': '🎈', '變形': '✨', '被困': '📦',
-      '尋找東西': '🔍', '錯過班車': '🚌', '重返校園': '🎒', '舞台表演': '🎤', '失聲': '🤐'
+      '祖母': '👵', '祖父': '👴', '小偷': '🦹', '流浪漢': '🧳', '女巫': '🧙‍♀️',
+      '醫生': '🩺', '小孩': '🧒', '敵人': '⚔️', '司機': '🚗', '聖者／隱士': '🧘',
+      '鹿': '🦌', '貓': '🐱', '孔雀': '🦚', '綿羊': '🐑', '蝙蝠': '🦇',
+      '狼': '🐺', '馬': '🐎', '蛇': '🐍', '鷹': '🦅', '老鼠': '🐭',
+      '圖書館': '📚', '港口': '⚓', '旅館／酒店': '🏨', '墳墓': '🪦', '森林': '🌲',
+      '學校': '🏫', '橋': '🌉', '家／房屋': '🏠', '房子': '🏠', '洞穴': '🕳️',
+      '山': '⛰️', '地下室': '🏚️', '天台': '🏢', '監獄': '⛓️', '醫院': '🏥',
+      '沙漠': '🏜️', '海洋': '🌊', '河流': '🏞️', '超市': '🛒', '車站': '🚉',
+      '教堂': '⛪', '鑰匙': '🔑', '鏡子': '🪞', '船': '🚢', '燈籠／燈': '🏮',
+      '衣服': '👕', '寶石': '💎', '錢／金錢': '💰', '錢': '💰', '門': '🚪',
+      '鐘錶／時鐘': '🕰️', '時鐘': '⏰', '武器': '⚔️', '書本': '📖', '書': '📖',
+      '車輛': '🚗', '梯子': '🪜', '窗': '🪟', '窗戶': '🪟', '鎖': '🔒',
+      '劍': '🗡️', '花朵': '🌸', '花': '🌸', '種子': '🌱', '面具': '🎭',
+      '棺材': '⚰️', '眼睛': '👁️', '心臟': '🫀', '牙齒': '🦷', '牙齒脫落': '🦷',
+      '皮膚': '🩹', '頭': '👤', '手': '✋', '腳': '🦶', '血': '🩸',
+      '骨頭': '🦴', '頭髮': '💇', '追逐': '🏃', '尋找東西': '🔍', '溺水': '🏊',
+      '墜落': '🪂', '考試／答不出題': '📝', '考試': '📝', '遲到': '⏱️', '飛翔': '🦅',
+      '躲藏': '🫣', '殺人': '🔪', '死亡': '💀', '奔跑': '🏃', '迷路': '🧭',
+      '受傷': '🩹', '結婚': '💍', '分手': '💔', '開槍': '🔫', '被綁': '⛓️',
+      '斷電': '🔌', '洪水': '🌊', '火災': '🔥', '地震': '🌋', '裸體': '👤',
+      '水': '🌊', '火': '🔥', '陌生人': '👥', '前任': '💔', '嬰兒': '👶', '老人': '👴',
+      '影子': '👤', '天使': '👼', '惡魔': '👿'
     };
-    return map[sym] || '🔮';
+    for (const [k, v] of Object.entries(map)) {
+      if (sym.includes(k) || k.includes(sym)) return v;
+    }
+    return '🔮';
   }
 
   // 1. Retrieve Dream Symbols (Prioritize DreamAstra 100 Symbols, Max 8)
@@ -680,18 +743,27 @@ export async function executeSqlRetrieval(
           .map((b) => {
             let score = 0;
             if (lower.includes(b.book_name.toLowerCase())) score += 5;
+            if (b.title_zh && lower.includes(b.title_zh.toLowerCase())) score += 5;
             if (b.author && lower.includes(b.author.toLowerCase())) score += 4;
             if (b.school && lower.includes(b.school.toLowerCase())) score += 3;
+            const sceneMatches = Array.isArray(b.scene_match) ? b.scene_match : (typeof b.scene_match === 'string' ? JSON.parse(b.scene_match) : []);
+            for (const sm of sceneMatches) {
+              if (lower.includes(String(sm).toLowerCase())) score += 4;
+            }
             // Bonus score if matched symbols reference this book
             for (const sym of matchedSymbols) {
-              if (sym.book_interpret && sym.book_interpret[b.book_name]) {
+              if (sym.book_interpret && (sym.book_interpret[String(b.book_id)] || sym.book_interpret[b.book_name])) {
                 score += 3;
               }
             }
+            const theory = b.core_theory || b.description || '';
+            const proc = Array.isArray(b.process) && b.process.length > 0 ? ` [流程: ${b.process.join(' -> ')}]` : '';
+            const forb = Array.isArray(b.forbidden) && b.forbidden.length > 0 ? ` [禁忌: ${b.forbidden.join('、')}]` : '';
+
             return {
               source_title: `${b.book_name} (${b.author || ''} · ${b.school || ''}學派)`,
               category: 'DreamAstra 權威典籍',
-              snippet: `${b.description || ''}`,
+              snippet: `${theory}${proc}${forb}`.trim(),
               score,
             };
           })
@@ -708,17 +780,25 @@ export async function executeSqlRetrieval(
       .map((b) => {
         let score = 0;
         if (lower.includes(b.book_name.toLowerCase())) score += 5;
+        if (b.title_zh && lower.includes(b.title_zh.toLowerCase())) score += 5;
         if (b.author && lower.includes(b.author.toLowerCase())) score += 4;
         if (b.school && lower.includes(b.school.toLowerCase())) score += 3;
+        for (const sm of b.scene_match || []) {
+          if (lower.includes(String(sm).toLowerCase())) score += 4;
+        }
         for (const sym of matchedSymbols) {
-          if (sym.book_interpret && sym.book_interpret[b.book_name]) {
+          if (sym.book_interpret && (sym.book_interpret[String(b.book_id)] || sym.book_interpret[b.book_name])) {
             score += 3;
           }
         }
+        const theory = b.core_theory || b.description || '';
+        const proc = b.process && b.process.length > 0 ? ` [流程: ${b.process.join(' -> ')}]` : '';
+        const forb = b.forbidden && b.forbidden.length > 0 ? ` [禁忌: ${b.forbidden.join('、')}]` : '';
+
         return {
           source_title: `${b.book_name} (${b.author} · ${b.school}學派)`,
           category: 'DreamAstra 權威典籍',
-          snippet: b.description,
+          snippet: `${theory}${proc}${forb}`.trim(),
           score,
         };
       })
@@ -786,7 +866,13 @@ export async function executeSqlRetrieval(
       parts.push('【DreamAstra 核心意象 (最多8項)】\n' + matchedSymbols.map((s, i) => {
         let text = `${i + 1}. ${s.symbol_emoji} ${s.symbol_name}: ${s.primary_meaning}`;
         if (s.book_interpret && Object.keys(s.book_interpret).length > 0) {
-          const bookViews = Object.entries(s.book_interpret).map(([book, interp]) => `《${book}》: ${interp}`).join('；');
+          const bookViews = Object.entries(s.book_interpret).map(([bookKey, interp]) => {
+            let bookName = bookKey;
+            const bookById = DREAM_BOOKS.find(bk => String(bk.book_id) === String(bookKey));
+            if (bookById) bookName = bookById.book_name;
+            const itemText = typeof interp === 'string' ? interp : (interp as any)?.text || JSON.stringify(interp);
+            return `《${bookName}》: ${itemText}`;
+          }).join('；');
           text += ` [典籍詮釋: ${bookViews}]`;
         }
         if (s.cultural_meaning) {
