@@ -489,6 +489,8 @@ export default function App() {
           onOpenEarnStars={() => setIsStarVideoOpen(true)}
           onUpdateUserStars={handleUpdateUserStars}
           onNavigateToWorkspace={() => handleNavigate('app', 'workspace')}
+          onUpdateProducts={(updated) => setProducts(updated)}
+          onNavigateToAdmin={() => handleNavigate('admin')}
         />
       )}
 

@@ -225,6 +225,8 @@ export interface BookBrainItem {
   created_at?: string;
 }
 
+export type ProductStatus = 'approved' | 'pending' | 'rejected';
+
 export interface ProductItem {
   id: string;
   name: string;
@@ -252,6 +254,14 @@ export interface ProductItem {
   imageUrl: string;
   badge?: string;
   inStock: boolean;
+  status?: ProductStatus; // 審批狀態：'approved' (公開) | 'pending' (待高級管理員審批) | 'rejected' (已退回)
+  submittedByUserId?: string;
+  submittedByUserName?: string;
+  submittedByUserEmail?: string;
+  submittedAt?: string;
+  reviewedByUserId?: string;
+  reviewedAt?: string;
+  rejectionReason?: string;
 }
 
 export interface PurchaseOrder {

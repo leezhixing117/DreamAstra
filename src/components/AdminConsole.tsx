@@ -5,6 +5,7 @@ import { INITIAL_AD_VIDEOS } from '../data';
 import { INITIAL_THERAPISTS } from '../data/therapists';
 import { BookOpen, Sliders, Users, Upload, Check, AlertCircle, RefreshCw, UserCheck, Trash2, Edit3, Plus, ShieldCheck, ShieldAlert, Star, Crown, Settings, ShoppingBag, Package, Sparkles, Tv, Play, Video, Eye, Heart } from 'lucide-react';
 import { TherapistAdminManager } from './TherapistAdminManager';
+import { ConfirmDeleteModal } from './ConfirmDeleteModal';
 
 interface BookTheoryItem {
   id: string;
@@ -135,6 +136,7 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
 
   // Product management state
   const [editingProduct, setEditingProduct] = useState<ProductItem | null>(null);
+  const [productToDelete, setProductToDelete] = useState<ProductItem | null>(null);
   const [isAddingProduct, setIsAddingProduct] = useState(false);
   const [productForm, setProductForm] = useState<Partial<ProductItem>>({
     name: '',
@@ -151,6 +153,7 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
     badge: '',
     inStock: true,
   });
+  const [productApprovalFilter, setProductApprovalFilter] = useState<'all' | 'pending' | 'approved' | 'rejected'>('all');
 
   // Ad Video Management State
   const [editingAd, setEditingAd] = useState<AdVideoItem | null>(null);
@@ -227,19 +230,70 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
         imageUrl: productForm.imageUrl || 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&w=800&q=80',
         badge: productForm.badge,
         inStock: true,
+        status: 'approved',
+        reviewedByUserId: currentUserId,
+        reviewedAt: new Date().toISOString(),
       };
       const updated = [newProd, ...products];
       saveProducts(updated);
-      setNotice(`已成功新增產品條目：「${newProd.name}」`);
+      setNotice(`已成功新增產品條目：「${newProd.name}」（已直接公開）`);
       setIsAddingProduct(false);
     }
   };
 
-  const handleDeleteProduct = (id: string) => {
-    if (!window.confirm('確定要從產品資料庫移除此商品嗎？')) return;
+  const handleApproveProduct = (id: string) => {
+    if (!isSuperAdmin) {
+      setNotice('⚠️ 只有高級管理員 (Super Admin) 具備核准公開上架的審批權限！');
+      return;
+    }
+    const target = products.find((p) => p.id === id);
+    const updated = products.map((p) =>
+      p.id === id
+        ? {
+            ...p,
+            status: 'approved' as const,
+            reviewedByUserId: currentUserId,
+            reviewedAt: new Date().toISOString(),
+          }
+        : p
+    );
+    saveProducts(updated);
+    setNotice(`✅ 已成功核准並公開上架產品「${target?.name || ''}」！`);
+  };
+
+  const handleRejectProduct = (id: string) => {
+    if (!isSuperAdmin) {
+      setNotice('⚠️ 只有高級管理員 (Super Admin) 具備審批權限！');
+      return;
+    }
+    const target = products.find((p) => p.id === id);
+    const reason = window.prompt(
+      `請輸入退回產品「${target?.name || ''}」的原因：`,
+      '暫不符合解夢選物店選品標準，請補充詳細產品規格與成分後重新提交'
+    );
+    if (reason === null) return;
+
+    const updated = products.map((p) =>
+      p.id === id
+        ? {
+            ...p,
+            status: 'rejected' as const,
+            rejectionReason: reason || '暫不符合選品標準',
+            reviewedByUserId: currentUserId,
+            reviewedAt: new Date().toISOString(),
+          }
+        : p
+    );
+    saveProducts(updated);
+    setNotice(`❌ 已退回產品「${target?.name || ''}」的上架申請。`);
+  };
+
+  const handleConfirmDeleteProduct = (id: string) => {
+    const target = products.find((p) => p.id === id);
     const updated = products.filter((p) => p.id !== id);
     saveProducts(updated);
-    setNotice('已刪除該商品條目');
+    setNotice(`已成功從產品庫中移除商品「${target?.name || ''}」`);
+    setProductToDelete(null);
   };
 
   // Save Ad Videos
@@ -1101,72 +1155,244 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
             </form>
           )}
 
-          {/* Products List */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            {products.map((p) => (
-              <div
-                key={p.id}
-                className="p-4 rounded-2xl bg-white/[0.03] border border-white/10 hover:border-emerald-500/40 transition-all flex items-start gap-4"
+          {/* Products Approval Filter and Summary */}
+          <div className="flex flex-wrap items-center justify-between gap-3 mb-4 p-3 rounded-2xl bg-white/[0.03] border border-white/10">
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setProductApprovalFilter('all')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-all ${
+                  productApprovalFilter === 'all'
+                    ? 'bg-emerald-500 text-black font-bold shadow-sm'
+                    : 'bg-white/5 text-[#cbd2ef] hover:bg-white/10 border border-white/5'
+                }`}
               >
-                <img
-                  src={p.imageUrl}
-                  alt={p.name}
-                  referrerPolicy="no-referrer"
-                  className="w-20 h-20 rounded-xl object-cover bg-black/40 shrink-0 border border-white/10"
-                />
+                全部產品 ({products.length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setProductApprovalFilter('pending')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-all flex items-center gap-1.5 ${
+                  productApprovalFilter === 'pending'
+                    ? 'bg-amber-400 text-black font-bold shadow-md shadow-amber-400/20'
+                    : 'bg-amber-500/10 text-amber-300 hover:bg-amber-500/20 border border-amber-500/30'
+                }`}
+              >
+                <span>⏳ 待高級管理員審批</span>
+                <span className="px-1.5 py-0.5 rounded-full bg-black/40 text-[10px] font-mono font-bold">
+                  {products.filter((p) => p.status === 'pending').length}
+                </span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setProductApprovalFilter('approved')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-all ${
+                  productApprovalFilter === 'approved'
+                    ? 'bg-emerald-500 text-black font-bold shadow-sm'
+                    : 'bg-white/5 text-[#cbd2ef] hover:bg-white/10 border border-white/5'
+                }`}
+              >
+                ✅ 已公開上架 ({products.filter((p) => !p.status || p.status === 'approved').length})
+              </button>
+              <button
+                type="button"
+                onClick={() => setProductApprovalFilter('rejected')}
+                className={`px-3 py-1.5 rounded-xl text-xs font-medium cursor-pointer transition-all ${
+                  productApprovalFilter === 'rejected'
+                    ? 'bg-red-500 text-white font-bold shadow-sm'
+                    : 'bg-white/5 text-[#cbd2ef] hover:bg-white/10 border border-white/5'
+                }`}
+              >
+                ❌ 已退回 ({products.filter((p) => p.status === 'rejected').length})
+              </button>
+            </div>
 
-                <div className="flex-1 min-w-0 space-y-1">
-                  <div className="flex items-center justify-between gap-1">
-                    <span className="text-[10px] text-emerald-400 font-medium">
-                      {p.categoryLabel}
-                    </span>
-                    <span className="text-xs font-black text-white font-mono">
-                      HK${p.priceHKD}
-                    </span>
-                  </div>
-
-                  <h4 className="text-xs font-bold text-white truncate">
-                    {p.name}
-                  </h4>
-                  <p className="text-[11px] text-[#aab3d2] line-clamp-1">
-                    {p.subTitle}
-                  </p>
-
-                  <div className="text-[10px] text-[#8d97b5] pt-0.5">
-                    規格：{p.volumeOrSpec} · 品牌：{p.brand}
-                  </div>
-
-                  <div className="pt-2 flex items-center justify-between border-t border-white/5">
-                    <span className="text-[10px] text-amber-300">
-                      適用關鍵字：{p.matchingKeywords.slice(0, 4).join('、')}
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setEditingProduct(p);
-                          setIsAddingProduct(false);
-                          setProductForm(p);
-                        }}
-                        className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs"
-                        title="編輯此產品"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteProduct(p.id)}
-                        className="p-1.5 rounded-lg bg-white/5 hover:bg-red-500/20 text-[#8d97b5] hover:text-[#ff8b9d] text-xs"
-                        title="刪除"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+            <div className="text-xs text-[#aab3d2] flex items-center gap-1.5">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+              <span>
+                {isSuperAdmin
+                  ? '👑 高級管理員身分：具備核准公開與退回權限'
+                  : '一般管理員：審批由高級管理員 (Super Admin) 執行'}
+              </span>
+            </div>
           </div>
+
+          {/* Products List */}
+          {products.filter((p) => {
+            if (productApprovalFilter === 'pending') return p.status === 'pending';
+            if (productApprovalFilter === 'approved') return !p.status || p.status === 'approved';
+            if (productApprovalFilter === 'rejected') return p.status === 'rejected';
+            return true;
+          }).length === 0 ? (
+            <div className="p-12 text-center rounded-2xl bg-white/[0.02] border border-white/5 text-[#8d97b5] text-xs">
+              目前篩選分類下暫無產品。
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-2">
+              {products
+                .filter((p) => {
+                  if (productApprovalFilter === 'pending') return p.status === 'pending';
+                  if (productApprovalFilter === 'approved') return !p.status || p.status === 'approved';
+                  if (productApprovalFilter === 'rejected') return p.status === 'rejected';
+                  return true;
+                })
+                .map((p) => {
+                  const isPending = p.status === 'pending';
+                  const isRejected = p.status === 'rejected';
+
+                  return (
+                    <div
+                      key={p.id}
+                      className={`p-4 rounded-2xl transition-all flex items-start gap-4 ${
+                        isPending
+                          ? 'bg-amber-950/15 border-2 border-amber-500/50 shadow-lg shadow-amber-950/20'
+                          : isRejected
+                          ? 'bg-red-950/10 border border-red-500/30'
+                          : 'bg-white/[0.03] border border-white/10 hover:border-emerald-500/40'
+                      }`}
+                    >
+                      <img
+                        src={p.imageUrl}
+                        alt={p.name}
+                        referrerPolicy="no-referrer"
+                        className="w-22 h-22 rounded-xl object-cover bg-black/40 shrink-0 border border-white/10"
+                      />
+
+                      <div className="flex-1 min-w-0 space-y-1.5">
+                        <div className="flex items-center justify-between gap-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] text-emerald-400 font-medium">
+                              {p.categoryLabel}
+                            </span>
+                            {isPending && (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] bg-amber-500/20 text-amber-300 border border-amber-500/40 font-bold flex items-center gap-1">
+                                ⏳ 待高級管理員審批
+                              </span>
+                            )}
+                            {isRejected && (
+                              <span className="px-2 py-0.5 rounded-md text-[10px] bg-red-500/20 text-red-300 border border-red-500/40 font-bold">
+                                ❌ 已退回
+                              </span>
+                            )}
+                            {!isPending && !isRejected && (
+                              <span className="px-1.5 py-0.5 rounded-md text-[9px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
+                                ✅ 已公開
+                              </span>
+                            )}
+                          </div>
+                          <span className="text-xs font-black text-white font-mono shrink-0">
+                            HK${p.priceHKD}
+                          </span>
+                        </div>
+
+                        <h4 className="text-xs font-bold text-white truncate">
+                          {p.name}
+                        </h4>
+                        <p className="text-[11px] text-[#aab3d2] line-clamp-1">
+                          {p.subTitle}
+                        </p>
+
+                        <div className="text-[10px] text-[#8d97b5]">
+                          規格：{p.volumeOrSpec} · 品牌/手作：{p.brand}
+                        </div>
+
+                        {p.submittedByUserName && (
+                          <div className="text-[10px] text-amber-200/90 bg-amber-500/10 px-2 py-1 rounded-lg border border-amber-500/20 flex flex-wrap items-center justify-between gap-1">
+                            <span>
+                              👤 會員提交：<strong className="text-white">{p.submittedByUserName}</strong>
+                              {p.submittedByUserEmail ? ` (${p.submittedByUserEmail})` : ''}
+                            </span>
+                            {p.submittedAt && (
+                              <span className="text-[9px] text-[#aab3d2]">
+                                {new Date(p.submittedAt).toLocaleDateString('zh-HK')}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        {isRejected && p.rejectionReason && (
+                          <div className="text-[10px] text-red-300 bg-red-500/10 px-2 py-1 rounded-lg border border-red-500/20">
+                            ⚠️ 退回理由：{p.rejectionReason}
+                          </div>
+                        )}
+
+                        {/* Actions row */}
+                        <div className="pt-2 flex items-center justify-between border-t border-white/5 flex-wrap gap-2">
+                          <div>
+                            {isPending && (
+                              <div className="flex items-center gap-1.5">
+                                {isSuperAdmin ? (
+                                  <>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleApproveProduct(p.id)}
+                                      className="px-2.5 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-[11px] flex items-center gap-1 shadow-sm cursor-pointer"
+                                    >
+                                      <Check className="w-3 h-3" />
+                                      <span>核准公開上架</span>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRejectProduct(p.id)}
+                                      className="px-2.5 py-1 rounded-lg bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 text-[11px] cursor-pointer"
+                                    >
+                                      退回
+                                    </button>
+                                  </>
+                                ) : (
+                                  <span className="text-[10px] text-amber-300">
+                                    待高級管理員審批
+                                  </span>
+                                )}
+                              </div>
+                            )}
+
+                            {isRejected && isSuperAdmin && (
+                              <button
+                                type="button"
+                                onClick={() => handleApproveProduct(p.id)}
+                                className="text-[10px] text-emerald-400 hover:underline cursor-pointer"
+                              >
+                                重新核准公開 →
+                              </button>
+                            )}
+
+                            {!isPending && !isRejected && (
+                              <span className="text-[10px] text-[#8d97b5]">
+                                適用關鍵字：{p.matchingKeywords?.slice(0, 3).join('、') || '療癒身心'}
+                              </span>
+                            )}
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingProduct(p);
+                                setIsAddingProduct(false);
+                                setProductForm(p);
+                              }}
+                              className="p-1.5 rounded-lg bg-white/5 hover:bg-white/10 text-white text-xs cursor-pointer"
+                              title="編輯此產品"
+                            >
+                              <Edit3 className="w-3.5 h-3.5" />
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setProductToDelete(p)}
+                              className="p-1.5 rounded-lg bg-white/5 hover:bg-red-500/20 text-[#8d97b5] hover:text-[#ff8b9d] text-xs cursor-pointer"
+                              title="刪除"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+          )}
         </section>
       )}
 
@@ -1795,6 +2021,14 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
           currentUserId={currentUserId}
         />
       )}
+
+      {/* Confirm Delete Product Modal */}
+      <ConfirmDeleteModal
+        isOpen={!!productToDelete}
+        onClose={() => setProductToDelete(null)}
+        product={productToDelete}
+        onConfirm={handleConfirmDeleteProduct}
+      />
     </div>
   );
 };
