@@ -116,10 +116,10 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">
-            解夢後專屬療癒選物 · 身心氣場調校
+            解夢選物店 · 身心能量調校與心靈療癒
           </h1>
           <p className="text-xs sm:text-sm text-[#cbd2ef] leading-relaxed">
-            夢境是潛意識的呼喚，清醒後更是轉化能量的契機。精選廣東傳統去霉開運碌柚葉香水、天然助眠草本、空間淨化鼠尾草與守護原石，配合你的夢境診斷，為生活注入好運與安寧。
+            夢境是潛意識的呼喚，清醒後更是轉化能量的契機。為你精選助眠草本香氛、空間煙燻淨化、守護水晶原石與身心調校等不同類型療癒產品，配合你的夢境診斷，為生活注入好運與安寧。
           </p>
 
           {currentDreamSummary && (
@@ -182,7 +182,7 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
               : 'bg-white/5 text-[#cbd2ef] hover:bg-white/10 border border-white/10'
           }`}
         >
-          🍃 淨化去霉 · 好運轉化
+          🍃 淨化開運 · 氣場轉化
         </button>
         <button
           type="button"
@@ -193,7 +193,18 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
               : 'bg-white/5 text-[#cbd2ef] hover:bg-white/10 border border-white/10'
           }`}
         >
-          🌙 深眠安神 · 夢境撫慰
+          🌙 深眠安神 · 枕頭噴霧
+        </button>
+        <button
+          type="button"
+          onClick={() => setSelectedCategory('herb')}
+          className={`px-4 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer ${
+            selectedCategory === 'herb'
+              ? 'bg-emerald-500 text-black font-bold shadow-md shadow-emerald-500/20'
+              : 'bg-white/5 text-[#cbd2ef] hover:bg-white/10 border border-white/10'
+          }`}
+        >
+          ☕ 草本調校 · 晚安舒緩茶
         </button>
         <button
           type="button"
@@ -204,7 +215,7 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
               : 'bg-white/5 text-[#cbd2ef] hover:bg-white/10 border border-white/10'
           }`}
         >
-          🌿 空間結界 · 白鼠尾草
+          🌿 空間結界 · 煙燻淨化
         </button>
         <button
           type="button"
@@ -767,7 +778,7 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
                 <ShoppingBag className="w-10 h-10 text-[#8d97b5] mx-auto opacity-50" />
                 <p className="text-xs text-[#aab3d2]">目前暫無任何選物訂單記錄</p>
                 <p className="text-[11px] text-[#8d97b5]">
-                  完成解夢後，可於產品庫選購碌柚葉去霉噴霧或助眠香薰。
+                  完成解夢後，可於選物店瀏覽各類身心調校、助眠草本與能量淨化產品。
                 </p>
               </div>
             ) : (

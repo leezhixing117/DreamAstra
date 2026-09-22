@@ -40,6 +40,7 @@ import {
   Copy,
   Check,
   Plus,
+  ShoppingBag,
 } from 'lucide-react';
 
 interface DreamWorkspaceProps {
@@ -1244,34 +1245,34 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
               )}
 
               {/* POST-DREAM HEALING PRODUCT RECOMMENDATION (Post-Analysis Selection) */}
-              <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-950/40 via-purple-950/20 to-black border border-emerald-500/30 flex flex-col sm:flex-row items-center justify-between gap-4">
+              <div className="p-4 rounded-2xl bg-gradient-to-r from-purple-950/40 via-[#161a33] to-[#0d1020] border border-white/10 flex flex-col sm:flex-row items-center justify-between gap-4">
                 <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-2xl shrink-0">
-                    🌿
+                  <div className="w-12 h-12 rounded-xl bg-[#aa9cff]/20 border border-[#aa9cff]/40 flex items-center justify-center text-2xl shrink-0">
+                    🛍️
                   </div>
                   <div className="space-y-0.5">
                     <div className="flex items-center gap-2">
-                      <span className="badge bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-[10px]">
-                        解夢轉運選物
+                      <span className="badge bg-[#aa9cff]/20 text-[#c3b9ff] border-[#aa9cff]/40 text-[10px]">
+                        解夢選物店推薦
                       </span>
                       <span className="text-[11px] text-amber-300 font-medium">
-                        零離 · 廣東碌柚葉香水噴霧 (去霉開運)
+                        身心調校 · 助眠草本 · 空間淨化 · 能量水晶
                       </span>
                     </div>
                     <p className="text-[11px] text-[#cbd2ef] leading-relaxed line-clamp-1">
-                      嶺南古方碌柚葉黃酮，醒後一噴驅散夢境黏滯與心神不寧，重置清爽個人氣場。
+                      根據夢境診斷挑選專屬療癒好物，提供深眠枕頭噴霧、白鼠尾草煙燻草杖、天然水晶原礦等多樣選品。
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-2 shrink-0 w-full sm:w-auto justify-end">
-                  <span className="text-xs font-bold text-white">HK$68</span>
                   <button
                     type="button"
-                    onClick={() => onGoToStore && onGoToStore('prod_pomelo_spray')}
-                    className="px-3.5 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs flex items-center gap-1 shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
+                    onClick={() => onGoToStore && onGoToStore()}
+                    className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-[#aa9cff] to-[#71d9ff] hover:brightness-110 text-[#0a0d1d] font-bold text-xs flex items-center gap-1.5 shadow-md shadow-[#aa9cff]/20 transition-all cursor-pointer"
                   >
-                    <span>選購去霉</span>
+                    <ShoppingBag className="w-3.5 h-3.5" />
+                    <span>逛解夢選物店</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -1536,35 +1537,36 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
               {/* POST-DREAM PRODUCT RECOMMENDATION BANNER */}
               <div className="p-5 rounded-3xl bg-gradient-to-r from-emerald-950/40 via-purple-950/30 to-black border border-emerald-500/40 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-lg shadow-emerald-950/30">
                 <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-2xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-2xl shrink-0">
-                    🌿
+                  <div className="w-12 h-12 rounded-2xl bg-[#aa9cff]/20 border border-[#aa9cff]/40 flex items-center justify-center text-2xl shrink-0">
+                    🛍️
                   </div>
                   <div className="space-y-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="badge bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-[10px]">
-                        解夢轉化配方 · 實體選物推薦
+                      <span className="badge bg-[#aa9cff]/20 text-[#c3b9ff] border-[#aa9cff]/40 text-[10px]">
+                        解夢選物店 · 身心轉化選品
                       </span>
                       <span className="text-xs text-white font-bold">
-                        零離 · 廣東精選碌柚葉好運香水噴霧
+                        精選深眠草本、空間煙燻淨化與守護水晶原礦
                       </span>
                     </div>
                     <p className="text-xs text-[#cbd2ef] leading-relaxed">
-                      針對本場夢境意象，醒後以柚葉黃酮純露一噴淨化身心能量場，去霉開運、安神定心。
+                      針對本場夢境意象與潛意識能量，前往選物店瀏覽各類調校心神好物，支援星星幣折抵換購。
                     </p>
                   </div>
                 </div>
 
                 <div className="flex items-center gap-3 shrink-0 w-full sm:w-auto justify-end">
                   <div className="text-right">
-                    <div className="text-sm font-black text-white">HK$68</div>
-                    <div className="text-[10px] text-amber-300 font-mono">支援星星幣折抵</div>
+                    <div className="text-xs font-bold text-amber-300 font-mono">支援星星幣折抵</div>
+                    <div className="text-[10px] text-[#8d97b5]">多款靈性與安眠好物</div>
                   </div>
                   <button
                     type="button"
-                    onClick={() => onGoToStore && onGoToStore('prod_pomelo_spray')}
-                    className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
+                    onClick={() => onGoToStore && onGoToStore()}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#aa9cff] to-[#71d9ff] hover:brightness-110 text-[#0a0d1d] font-extrabold text-xs flex items-center gap-1.5 shadow-md shadow-[#aa9cff]/20 transition-all cursor-pointer"
                   >
-                    <span>選購轉運</span>
+                    <ShoppingBag className="w-3.5 h-3.5" />
+                    <span>逛解夢選物店</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </button>
                 </div>

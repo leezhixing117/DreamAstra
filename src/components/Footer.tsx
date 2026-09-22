@@ -73,8 +73,8 @@ export const Footer: React.FC<FooterProps> = ({
                   onClick={() => onNavigate('store')}
                   className="hover:text-white transition-colors cursor-pointer flex items-center gap-1"
                 >
-                  <span className="text-emerald-400">🌿</span>
-                  <span>解夢選物店 (碌柚葉去霉)</span>
+                  <span className="text-[#aa9cff]">🛍️</span>
+                  <span>解夢選物店</span>
                 </button>
               </li>
             </ul>

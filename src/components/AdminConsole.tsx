@@ -923,10 +923,10 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
                 POST-DREAM PRODUCTS DATABASE
               </span>
               <h2 style={{ fontSize: 24, marginTop: 12 }} className="text-white font-bold">
-                解夢後選購產品資料庫管理
+                解夢選物店產品資料庫管理
               </h2>
               <p className="text-xs sm:text-sm text-[#cbd2ef] leading-relaxed mt-1">
-                管理可供客人在完成夢境分析後選購之身心轉運產品（包含廣東碌柚葉好運噴霧、安眠草本、空間淨化等）。
+                管理可供客人在完成夢境分析後選購之各類身心轉運與療癒產品（包含安眠草本、空間淨化、守護水晶與氣場噴霧等）。
               </p>
             </div>
 
@@ -982,7 +982,7 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
                     required
                     value={productForm.name || ''}
                     onChange={(e) => setProductForm({ ...productForm, name: e.target.value })}
-                    placeholder="例如：零離 · 廣東精選碌柚葉好運香水噴霧"
+                    placeholder="例如：深眠白噪音薰衣草舒緩枕頭噴霧 / 白鼠尾草淨化杖"
                     className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs focus:outline-none focus:border-emerald-500"
                   />
                 </div>
@@ -993,7 +993,7 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
                     type="text"
                     value={productForm.subTitle || ''}
                     onChange={(e) => setProductForm({ ...productForm, subTitle: e.target.value })}
-                    placeholder="例如：去霉開運 · 日進斗金 · 鴻運當頭"
+                    placeholder="例如：助眠放鬆 · 撫平夜間焦慮 · 重整能量磁場"
                     className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs focus:outline-none focus:border-emerald-500"
                   />
                 </div>
@@ -1004,7 +1004,7 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
                     type="text"
                     value={productForm.brand || ''}
                     onChange={(e) => setProductForm({ ...productForm, brand: e.target.value })}
-                    placeholder="例如：零離 (LINGLI)"
+                    placeholder="例如：DreamWisdom Herbal Lab / Aura Crystals"
                     className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs focus:outline-none focus:border-emerald-500"
                   />
                 </div>
@@ -1039,7 +1039,7 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
                     onChange={(e) => setProductForm({ ...productForm, category: e.target.value as any })}
                     className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs focus:outline-none focus:border-emerald-500 cursor-pointer"
                   >
-                    <option value="purify">🍃 淨化去霉 · 好運轉化 (碌柚葉等)</option>
+                    <option value="purify">🍃 淨化開運 · 氣場轉化 (草本噴霧等)</option>
                     <option value="sleep">🌙 深眠安神 · 夢境撫慰 (枕頭噴霧)</option>
                     <option value="incense">🌿 空間結界 · 白鼠尾草</option>
                     <option value="crystal">💎 靈性直覺 · 守護水晶</option>
@@ -1074,7 +1074,7 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
                     rows={2}
                     value={productForm.recommendationReason || ''}
                     onChange={(e) => setProductForm({ ...productForm, recommendationReason: e.target.value })}
-                    placeholder="醒來若感心有餘悸或沉重滯塞，廣東傳統以碌柚葉水淨身去霉..."
+                    placeholder="例如：醒來若感心神不寧或沉重滯塞，推薦睡前枕畔噴灑或煙燻淨化空間..."
                     className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs focus:outline-none focus:border-emerald-500"
                   />
                 </div>

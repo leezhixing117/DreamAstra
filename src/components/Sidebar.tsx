@@ -150,12 +150,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         <button
           type="button"
           onClick={() => onNavigate('store')}
-          className="sideitem text-emerald-300 hover:text-emerald-200"
+          className="sideitem text-[#c3b9ff] hover:text-white"
           id="sidebar-item-store"
-          title="解夢選物店：碌柚葉去霉噴霧、深眠草本、空間淨化"
+          title="解夢選物店：身心轉化、深眠草本、空間淨化與守護水晶"
         >
-          <span className="text-emerald-400">🌿</span>
-          <span>解夢選物店 (碌柚葉)</span>
+          <span className="text-[#aa9cff]">🛍️</span>
+          <span>解夢選物店</span>
         </button>
 
         {/* Privacy Policy Link */}
