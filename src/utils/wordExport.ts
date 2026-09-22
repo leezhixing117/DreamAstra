@@ -93,7 +93,7 @@ export function exportHtmlToWord(filename: string, title: string, bodyHtml: stri
   <div class="meta-box">
     <strong>DreamWisdom · 深度夢境心理檔案</strong><br>
     匯出時間：${new Date().toLocaleString('zh-HK')}<br>
-    系統認證：Dream Master SQL SOP 心理意象檢索架構
+    分析體系：Dream Master 經典心理學意象分析體系
   </div>
   ${bodyHtml}
   <div class="disclaimer">

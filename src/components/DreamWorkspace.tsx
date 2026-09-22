@@ -9,7 +9,6 @@ import { DreamConstellationView } from './DreamConstellationView';
 import { ThirtyNightsMysteryView } from './ThirtyNightsMysteryView';
 import { DreamJournalManager } from './DreamJournalManager';
 import { TherapeuticSupportModal } from './TherapeuticSupportModal';
-import { DreamPortalModal } from './DreamPortalModal';
 import {
   Sparkles,
   Brain,
@@ -75,7 +74,6 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
   const [dream, setDream] = useState(prefilledDream);
   const [isDetectiveOpen, setIsDetectiveOpen] = useState(false);
   const [isTherapeuticOpen, setIsTherapeuticOpen] = useState(false);
-  const [isPortalModalOpen, setIsPortalModalOpen] = useState(false);
 
   // Loading states
   const [isQuickAnalyzing, setIsQuickAnalyzing] = useState(false);
@@ -118,11 +116,11 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
   const [showContextOptions, setShowContextOptions] = useState(false);
   const [isMasterAnalyzing, setIsMasterAnalyzing] = useState(false);
   const [masterAnalysis, setMasterAnalysis] = useState<DreamMasterAnalysisResult | null>(null);
-  const [showRetrievedDataSnippet, setShowRetrievedDataSnippet] = useState(false);
   const [followUpQuestion, setFollowUpQuestion] = useState('');
   const [isFollowUpLoading, setIsFollowUpLoading] = useState(false);
   const [followUpHistory, setFollowUpHistory] = useState<Array<{ q: string; a: string }>>([]);
   const [copiedWordNotice, setCopiedWordNotice] = useState(false);
+  const [paidPreliminary, setPaidPreliminary] = useState(false);
 
   // Export Dream Master report as Microsoft Word (.doc)
   const handleExportMasterToWord = () => {
@@ -187,7 +185,7 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
     }
   };
 
-  // Dream Master SOP Analysis Runner
+  // Dream Master SOP Analysis Runner (需 6 星，若已做初步分析只需加 3 星)
   const handleRunMasterAnalysis = async () => {
     if (!dream.trim()) return;
     setErrorNotice(null);
@@ -196,6 +194,23 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
     if (dream.trim().length < 15) {
       setErrorNotice('夢境文字少於 15 字，暫不執行解讀。請試著補充夢中的核心情緒（例如害怕、平靜、困惑）、周遭具體場景、身邊出現的人物或關鍵細節，以便透過心理意象資料庫為你精準解析。');
       return;
+    }
+
+    const normRole = currentUser ? normalizeRole(currentUser.role) : 'free';
+    const isDirectUnlock = normRole === 'paid' || normRole === 'admin' || normRole === 'super_admin';
+    const stars = currentUser?.stars ?? 0;
+    const isUpgradingFromPreliminary = Boolean(paidPreliminary || quickReport);
+    const requiredStars = isUpgradingFromPreliminary ? 3 : 6;
+
+    if (!isDirectUnlock) {
+      if (stars < requiredStars) {
+        if (isUpgradingFromPreliminary) {
+          setErrorNotice(`升級 Dream Master 深度解夢需再加 3 顆星星幣（已為你折抵初步分析之 3 星，你目前持有 ${stars} 顆）。你可以點擊上方「隨機彈出片儲星星」免費獲取，或升級付費會員！`);
+        } else {
+          setErrorNotice(`直接進行 Dream Master 深度解夢需要 6 顆星星幣（你目前持有 ${stars} 顆）。你可以先用 3 星體驗初步分析，或點擊上方「隨機彈出片儲星星」儲滿 6 顆星！`);
+        }
+        return;
+      }
     }
 
     setIsMasterAnalyzing(true);
@@ -220,6 +235,11 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
 
       setMasterAnalysis(data);
       setFollowUpHistory([]);
+
+      // Deduct stars for free tier after successful Dream Master analysis
+      if (!isDirectUnlock && onUpdateUserStars) {
+        onUpdateUserStars(Math.max(0, stars - requiredStars));
+      }
 
       // Auto scroll to SOP card
       setTimeout(() => {
@@ -274,10 +294,23 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
     }
   };
 
-  // STEP 1: Perform Simple Basic Analysis (簡單初步分析)
+  // STEP 1: Perform Simple Basic Analysis (簡單初步分析，需 3 星)
   const handlePerformQuickAnalysis = async () => {
     if (!dream.trim()) return;
     setErrorNotice(null);
+
+    const normRole = currentUser ? normalizeRole(currentUser.role) : 'free';
+    const isDirectUnlock = normRole === 'paid' || normRole === 'admin' || normRole === 'super_admin';
+    const stars = currentUser?.stars ?? 0;
+    const requiredStars = 3;
+
+    if (!isDirectUnlock) {
+      if (stars < requiredStars) {
+        setErrorNotice(`初步分析需要 3 顆星星幣（你目前持有 ${stars} 顆）。你可以點擊上方「隨機彈出片儲星星」免費獲取，或升級付費會員！`);
+        return;
+      }
+    }
+
     setIsQuickAnalyzing(true);
     setActiveReport(null);
 
@@ -303,6 +336,12 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
 
       const data = await response.json();
       setQuickReport(data.report);
+      setPaidPreliminary(true);
+
+      // Deduct 3 stars for free tier after successful preliminary analysis
+      if (!isDirectUnlock && onUpdateUserStars) {
+        onUpdateUserStars(Math.max(0, stars - requiredStars));
+      }
 
       // Populate 3 questions tailored to this dream for Step 2
       if (data.report.suggestedQuestions && data.report.suggestedQuestions.length > 0) {
@@ -320,7 +359,7 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
     }
   };
 
-  // STEP 2: Trigger Further AI Analysis (進一步 AI 深度解夢)
+  // STEP 2: Trigger Further AI Analysis (進一步 AI 深度解夢，初析後加 3 星)
   const handleOpenFurtherInquiry = () => {
     const normRole = currentUser ? normalizeRole(currentUser.role) : 'free';
     const isDirectUnlock = normRole === 'paid' || normRole === 'admin' || normRole === 'super_admin';
@@ -330,18 +369,19 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
       return;
     }
 
-    // General member star checking
-    const stars = currentUser?.stars ?? 2;
-    if (stars >= 1) {
+    // General member star checking: +3 stars if preliminary already completed, else 6 stars
+    const stars = currentUser?.stars ?? 0;
+    const requiredStars = (paidPreliminary || quickReport) ? 3 : 6;
+    if (stars >= requiredStars) {
       if (onUpdateUserStars) {
-        onUpdateUserStars(stars - 1);
+        onUpdateUserStars(stars - requiredStars);
       }
       setIsDetectiveOpen(true);
     } else {
       if (onOpenEarnStars) {
         onOpenEarnStars();
       } else {
-        alert('你的星星餘額為 0。一般會員可透過觀看隨機短片儲星星！');
+        alert(`你的星星餘額為 ${stars} 顆（需要 ${requiredStars} 顆）。一般會員可透過觀看隨機短片儲星星！`);
       }
     }
   };
@@ -425,6 +465,7 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
   // Reset to record a new dream
   const handleResetDream = () => {
     setDream('');
+    setPaidPreliminary(false);
     setQuickReport(null);
     setActiveReport(null);
     setMasterAnalysis(null);
@@ -588,50 +629,6 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
         </button>
       </div>
 
-      {/* Visual Dreamscape Portal Banner */}
-      <div className="relative rounded-2xl overflow-hidden border border-[#aa9cff]/30 glass-modern p-4 sm:p-4.5 flex flex-col sm:flex-row items-center justify-between gap-4 shadow-xl shadow-[#aa9cff]/10">
-        {/* Background artwork glow */}
-        <div className="absolute inset-0 opacity-25 pointer-events-none">
-          <img
-            src="/dream_cover_banner.jpg"
-            alt="Dreamscape Portal"
-            referrerPolicy="no-referrer"
-            className="w-full h-full object-cover object-center filter blur-[1.5px]"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#0e1329]/90 via-[#0e1329]/60 to-[#0e1329]/90" />
-        </div>
-
-        
-        <div className="relative z-10 flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 border border-[#aa9cff]/40 shadow-md">
-            <img
-              src="/dream_cover_vertical.jpg"
-              alt="Cover Mini"
-              referrerPolicy="no-referrer"
-              className="w-full h-full object-cover"
-            />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-bold text-white tracking-wide">夢境星圖門戶 · 92項意象解密庫</span>
-              <span className="text-[10px] px-2 py-0.2 rounded-full bg-[#78e1b5]/15 text-[#78e1b5] border border-[#78e1b5]/30 font-medium">全庫連線中</span>
-            </div>
-            <p className="text-[11px] text-[#aab3d2] mt-0.5">
-              每一場夢都在為你的星圖注入全新座標。輸入真實夢境，AI 立即由 22 本經典文獻展開深度心理學投射。
-            </p>
-          </div>
-        </div>
-
-        <button
-          type="button"
-          onClick={() => setIsPortalModalOpen(true)}
-          className="relative z-10 shrink-0 text-xs px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white border border-white/15 flex items-center gap-1.5 transition-all cursor-pointer"
-        >
-          <Sparkles className="w-3.5 h-3.5 text-[#aa9cff]" />
-          <span>意象全解析</span>
-        </button>
-      </div>
-
       {errorNotice && (
         <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-200 text-xs flex items-center gap-2">
           <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
@@ -681,12 +678,12 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                           : 'bg-[#78e1b5]/20 text-[#78e1b5] border-[#78e1b5]/30'
                       }`}
                     >
-                      {normalizeRole(currentUser.role) === 'free' ? `⭐ ${currentUser.stars ?? 2} 顆星` : '已直接解鎖'}
+                      {normalizeRole(currentUser.role) === 'free' ? `⭐ 結餘：${currentUser.stars ?? 0} 顆星` : 'VIP 已直接全解鎖'}
                     </span>
                   </div>
                   <p className="text-[11px] text-[#aab3d2] mt-0.5">
                     {normalizeRole(currentUser.role) === 'free'
-                      ? '一般會員可透過隨機彈出片儲備星星，每次深度解夢消耗 1 顆星；初步解讀全免。'
+                      ? '一般會員星星機制：初步分析需 3 顆星 · Dream Master 深度解夢需 6 顆星（若已做初步分析，只需再加 3 星升級）。可隨機彈出片儲星！'
                       : '付費會員與管理員已直接解鎖全部進階深度解夢、星圖宇宙與 30 夜探索功能，免看片免扣星。'}
                   </p>
                 </div>
@@ -730,11 +727,42 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
               </div>
             </div>
 
+            {/* 記夢引導（醒來記憶喚醒提示，置頂重要位置優先引導造夢者回憶） */}
+            <div className="p-3 sm:p-3.5 rounded-2xl bg-[#aa9cff]/10 border border-[#aa9cff]/20 flex flex-wrap items-center justify-between gap-2 text-xs mb-3" id="workspace-dream-guide">
+              <div className="flex items-center gap-1.5 font-semibold text-[#c3b9ff]">
+                <Sparkles className="w-3.5 h-3.5 text-[#aa9cff]" />
+                <span>記夢引導（點擊帶入回憶結構）：</span>
+              </div>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {[
+                  { label: '👥 有邊啲人物？', prompt: '【夢中人物】：' },
+                  { label: '📍 場景係邊度？', prompt: '【場景地點】：' },
+                  { label: '💭 感覺驚／開心／不安？', prompt: '【當時心情感覺】：' },
+                  { label: '🚪 有冇特定物件？', prompt: '【重要物件】：' },
+                ].map((guide, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => {
+                      setDream((prev) => {
+                        const trimmed = prev.trim();
+                        return trimmed ? `${trimmed}\n${guide.prompt}` : guide.prompt;
+                      });
+                    }}
+                    className="text-xs px-2.5 py-1 rounded-lg bg-white/10 hover:bg-[#aa9cff]/25 text-[#cbd2ef] hover:text-white border border-white/15 hover:border-[#aa9cff]/40 transition-all cursor-pointer font-medium active:scale-95"
+                    title={`點擊加入「${guide.prompt}」引導`}
+                  >
+                    {guide.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="relative">
               <textarea
                 value={dream}
                 onChange={(e) => setDream(e.target.value)}
-                placeholder="寫低你記得嘅夢境……醒來時看見甚麼？心情如何？（至少 15 字，以利心理意象資料庫精準檢索）"
+                placeholder="寫低你記得嘅夢境……醒來時看見甚麼？心情如何？（可點擊上方「記夢引導」快速帶入提示，或直接自由書寫）"
                 rows={4}
                 className="w-full text-base sm:text-sm leading-relaxed min-h-[140px] p-3.5 sm:p-4 rounded-2xl bg-[#090b16] border border-white/20 focus:border-[#aa9cff] focus:ring-2 focus:ring-[#aa9cff]/20 text-white placeholder-[#727c9e] outline-none transition-all shadow-inner"
                 id="workspace-dream-textarea"
@@ -746,12 +774,12 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                   {dream.trim().length > 0 && dream.trim().length < 15 ? (
                     <span className="text-amber-400 flex items-center gap-1 font-medium">
                       <AlertCircle className="w-3 h-3" />
-                      目前 {dream.trim().length} 字（少於 15 字）：SOP 規定請補充情緒、場景或關鍵細節方可解讀
+                      目前 {dream.trim().length} 字（少於 15 字）：建議補充情緒、場景或關鍵細節以利深入解讀
                     </span>
                   ) : dream.trim().length >= 15 ? (
                     <span className="text-[#78e1b5] flex items-center gap-1 font-medium">
                       <CheckCircle2 className="w-3 h-3" />
-                      已達 {dream.trim().length} 字，符合 SQL 意象庫檢索條件
+                      已達 {dream.trim().length} 字，內容完整度良好
                     </span>
                   ) : (
                     <span className="text-[#8d97b5]">建議完整描述夢中場景與情緒感受</span>
@@ -763,11 +791,11 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
               </div>
             </div>
 
-            {/* Quick Word Adder Chips (點擊一鍵加字 / 補充關鍵意象詞) */}
+            {/* Quick Word Adder Chips (次要輔助：補充意象詞) */}
             <div className="flex flex-wrap items-center gap-1.5 mt-2.5 pt-2.5 border-t border-white/5">
-              <span className="text-[11px] text-[#aa9cff] font-medium flex items-center gap-1">
+              <span className="text-[11px] text-[#8d97b5] font-medium flex items-center gap-1">
                 <Plus className="w-3 h-3" />
-                點擊加字／意象詞：
+                補充意象詞：
               </span>
               {[
                 { label: '🌊 海洋水流', text: '海洋、大水淹沒' },
@@ -867,45 +895,43 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
               )}
             </div>
 
-            {/* Structured Prompting Guide Chips for Waking Memory */}
-            <div className="flex flex-wrap items-center gap-1.5 mt-2.5 pt-2.5 border-t border-white/5">
-              <span className="text-[11px] text-[#8d97b5]">記夢引導：</span>
-              {[
-                { label: '👥 有邊啲人物？', prompt: '【夢中人物】：' },
-                { label: '📍 場景係邊度？', prompt: '【場景地點】：' },
-                { label: '💭 感覺驚／開心／不安？', prompt: '【當時心情感覺】：' },
-                { label: '🚪 有冇特定物件？', prompt: '【重要物件】：' },
-              ].map((guide, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => {
-                    setDream((prev) => {
-                      const trimmed = prev.trim();
-                      return trimmed ? `${trimmed}\n${guide.prompt}` : guide.prompt;
-                    });
-                  }}
-                  className="text-[11px] px-2 py-0.5 rounded-md bg-white/5 border border-white/10 text-[#cbd2ef] hover:bg-white/10 hover:text-white transition-colors cursor-pointer"
-                >
-                  {guide.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Action Buttons: Dream Master SQL SOP vs. Quick Analysis */}
+            {/* Action Buttons: Dream Master Deep Analysis vs. Quick Analysis */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 mt-4 pt-3 border-t border-white/10">
-              <div className="text-xs text-[#8d97b5]">
-                {masterAnalysis ? '✅ 已執行 Dream Master SQL 檢索深度解讀' : 'SOP 流程：預處理 ➔ SQL 意象與書籍檢索 ➔ 最小化 Prompt 注入 ➔ 600-900 字專業心理分析'}
+              <div className="text-xs">
+                {masterAnalysis ? (
+                  <span className="text-[#78e1b5] font-medium flex items-center gap-1.5">
+                    <Check className="w-3.5 h-3.5" />
+                    已完成 Dream Master 深度心理學專業分析
+                  </span>
+                ) : normalizeRole(currentUser?.role || 'free') === 'free' ? (
+                  <div className="flex flex-wrap items-center gap-1.5 text-[#cbd2ef]">
+                    <span className="text-amber-300 font-semibold flex items-center gap-1">
+                      <Star className="w-3.5 h-3.5 fill-amber-300" />
+                      星星幣說明：
+                    </span>
+                    <span className="text-[#8d97b5]">
+                      初步分析需 <b className="text-amber-300">3 星</b> · 深度解夢需 <b className="text-amber-300">6 星</b>（先初析後只需加 <b className="text-amber-300">3 星</b> 升級）
+                    </span>
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-400/10 border border-amber-400/25 text-amber-300 font-mono font-bold">
+                      目前結餘：{currentUser?.stars ?? 0} ⭐
+                    </span>
+                  </div>
+                ) : (
+                  <span className="text-[#78e1b5] font-medium flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-[#78e1b5]" />
+                    付費會員尊享：無限次初步分析與 Dream Master 深度解夢，免扣星星幣
+                  </span>
+                )}
               </div>
 
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="flex flex-wrap items-center gap-2 shrink-0">
                 <button
                   type="button"
                   className="btn2 text-xs px-3.5 py-2 flex items-center gap-1.5 cursor-pointer"
                   disabled={isQuickAnalyzing || isMasterAnalyzing || !dream.trim()}
                   onClick={handlePerformQuickAnalysis}
                   id="workspace-quick-analyze-btn"
-                  title="快速初步分析"
+                  title="初步分析需要 3 顆星星幣（付費會員免扣星）"
                 >
                   {isQuickAnalyzing ? (
                     <>
@@ -915,6 +941,15 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                   ) : (
                     <>
                       <span>✨ 初步分析</span>
+                      {normalizeRole(currentUser?.role || 'free') === 'free' ? (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-400/20 text-amber-300 font-bold font-mono">
+                          3 星 ⭐
+                        </span>
+                      ) : (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#78e1b5]/20 text-[#78e1b5] font-medium">
+                          免星
+                        </span>
+                      )}
                     </>
                   )}
                 </button>
@@ -925,17 +960,36 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                   disabled={isMasterAnalyzing || !dream.trim() || dream.trim().length < 15}
                   onClick={handleRunMasterAnalysis}
                   id="workspace-master-analyze-btn"
-                  title={dream.trim().length < 15 ? '夢境文字少於 15 字，暫不可執行' : '執行 Dream Master SQL 檢索深度解讀'}
+                  title={
+                    dream.trim().length < 15
+                      ? '夢境文字少於 15 字，暫不可執行'
+                      : (paidPreliminary || quickReport)
+                      ? '已做初步分析，只需再加 3 顆星升級 Dream Master 深度解夢'
+                      : '執行 Dream Master 深度心理學解夢（需 6 顆星）'
+                  }
                 >
                   {isMasterAnalyzing ? (
                     <>
                       <span className="w-3.5 h-3.5 border-2 border-[#0a0d1d] border-t-transparent rounded-full animate-spin" />
-                      <span>SQL 檢索與深度解析中…</span>
+                      <span>深度心理學解析中…</span>
                     </>
                   ) : (
                     <>
-                      <Database className="w-4 h-4" />
-                      <span>Dream Master SQL 深度解夢</span>
+                      <Sparkles className="w-4 h-4" />
+                      <span>
+                        {(paidPreliminary || quickReport)
+                          ? '升級 Dream Master 深度解夢'
+                          : 'Dream Master 深度解夢'}
+                      </span>
+                      {normalizeRole(currentUser?.role || 'free') === 'free' ? (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/35 text-amber-300 font-extrabold font-mono">
+                          {(paidPreliminary || quickReport) ? '+3 星 ⭐' : '6 星 ⭐'}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/25 text-[#0a0d1d] font-extrabold">
+                          VIP
+                        </span>
+                      )}
                       <ArrowRight className="w-3.5 h-3.5" />
                     </>
                   )}
@@ -944,17 +998,17 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
             </div>
           </section>
 
-          {/* DREAM MASTER SQL SOP RESULT CARD */}
+          {/* DREAM MASTER RESULT CARD */}
           {masterAnalysis && (
             <section
               className="card p-6 sm:p-7 rounded-3xl border border-[#aa9cff]/40 bg-gradient-to-b from-[#12162c] to-[#090c1b] space-y-5 shadow-2xl"
               id="dream-master-sop-card"
             >
-              {/* Header with SOP verification badges */}
+              {/* Header */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4">
                 <div className="flex items-center gap-2.5">
                   <div className="w-8 h-8 rounded-xl bg-[#aa9cff]/20 border border-[#aa9cff]/30 text-[#aa9cff] flex items-center justify-center shrink-0">
-                    <Database className="w-4 h-4" />
+                    <Sparkles className="w-4 h-4" />
                   </div>
                   <div>
                     <div className="flex items-center gap-2">
@@ -962,11 +1016,11 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                         Dream Master 深度心理學解讀
                       </h2>
                       <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#78e1b5]/15 text-[#78e1b5] border border-[#78e1b5]/30 font-medium">
-                        SQL 片段注入 SOP
+                        榮格原型與文獻對映
                       </span>
                     </div>
                     <p className="text-xs text-[#8d97b5]">
-                      非全書加載 · 精簡上下文壓縮 · 600-900 字心理學透視
+                      融合榮格分析心理學、現代睡眠科學與經典文獻透視
                     </p>
                   </div>
                 </div>
@@ -1007,56 +1061,36 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                 </div>
               </div>
 
-              {/* SQL Retrieval Injected Metrics Bar */}
+              {/* Psychological Dimensions & Literature Overview */}
               <div className="p-3.5 rounded-2xl bg-white/5 border border-white/10 space-y-2.5">
-                <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                  <span className="font-semibold text-white flex items-center gap-1.5">
-                    <FileText className="w-3.5 h-3.5 text-[#71d9ff]" />
-                    後端 SQL 檢索過濾結果（嚴格限制上限）：
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setShowRetrievedDataSnippet((prev) => !prev)}
-                    className="text-[11px] text-[#aa9cff] hover:underline flex items-center gap-1 cursor-pointer"
-                  >
-                    <span>{showRetrievedDataSnippet ? '隱藏' : '查看'} 注入之精簡純文字片段 ({'{{retrieved_data}}'})</span>
-                    {showRetrievedDataSnippet ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                  </button>
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-white">
+                  <Brain className="w-3.5 h-3.5 text-[#71d9ff]" />
+                  <span>深度解析心理原型維度：</span>
                 </div>
 
                 <div className="grid grid-cols-3 gap-2">
                   <div className="p-2.5 rounded-xl bg-[#111425] border border-white/10 text-center">
-                    <div className="text-[11px] text-[#8d97b5]">匹配意象 (最多8項)</div>
+                    <div className="text-[11px] text-[#8d97b5]">核心意象對映</div>
                     <div className="text-sm font-bold text-[#78e1b5] mt-0.5">
-                      {masterAnalysis.retrieved_counts.symbols} / 8 項
+                      {masterAnalysis.retrieved_counts.symbols} 項
                     </div>
                   </div>
                   <div className="p-2.5 rounded-xl bg-[#111425] border border-white/10 text-center">
-                    <div className="text-[11px] text-[#8d97b5]">匹配主題 (最多3項)</div>
+                    <div className="text-[11px] text-[#8d97b5]">潛意識主題維度</div>
                     <div className="text-sm font-bold text-[#71d9ff] mt-0.5">
-                      {masterAnalysis.retrieved_counts.themes} / 3 項
+                      {masterAnalysis.retrieved_counts.themes} 項
                     </div>
                   </div>
                   <div className="p-2.5 rounded-xl bg-[#111425] border border-white/10 text-center">
-                    <div className="text-[11px] text-[#8d97b5]">書籍規則片段 (最多4本)</div>
+                    <div className="text-[11px] text-[#8d97b5]">心理學大師典籍</div>
                     <div className="text-sm font-bold text-[#aa9cff] mt-0.5">
-                      {masterAnalysis.retrieved_counts.books_and_rules} / 4 則
+                      {masterAnalysis.retrieved_counts.books_and_rules} 則
                     </div>
                   </div>
                 </div>
-
-                {/* Collapsible raw {{retrieved_data}} display */}
-                {showRetrievedDataSnippet && (
-                  <div className="mt-2 p-3 rounded-xl bg-[#090b16] border border-white/10 text-[11px] font-mono text-[#cbd2ef] whitespace-pre-wrap max-h-48 overflow-y-auto leading-relaxed">
-                    <div className="text-[10px] text-[#8d97b5] uppercase tracking-wider mb-1 font-sans border-b border-white/10 pb-1">
-                      {'{{retrieved_data}}'} 純文字片段內容：
-                    </div>
-                    {masterAnalysis.retrieved_data_used}
-                  </div>
-                )}
               </div>
 
-              {/* Main Psychological Analysis Content (600-900 words) */}
+              {/* Main Psychological Analysis Content (400-800 words) */}
               <div className="p-5 sm:p-6 rounded-2xl bg-[#0d1020]/90 border border-white/10 text-white text-sm sm:text-base leading-relaxed whitespace-pre-wrap space-y-4 font-sans tracking-wide">
                 {masterAnalysis.analysis_text}
               </div>
@@ -1065,9 +1099,9 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
               <div className="p-3.5 rounded-xl bg-amber-400/10 border border-amber-400/25 text-amber-200 text-xs flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="w-4 h-4 text-amber-400 shrink-0" />
-                  <span className="font-semibold">SOP 合規確認：{masterAnalysis.disclaimer}</span>
+                  <span className="font-semibold">{masterAnalysis.disclaimer}</span>
                 </div>
-                <span className="text-[11px] text-amber-300/80">嚴禁玄學算命與吉凶定論</span>
+                <span className="text-[11px] text-amber-300/80">心理學參考 · 非命運預測</span>
               </div>
 
               {/* Multi-turn Context Management & Follow-up Conversation (對話輪次管理) */}
@@ -1243,26 +1277,30 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                 </div>
               </div>
 
-              {/* STEP 2 INVITATION: 需要進一步 AI 解夢才出 3 條進一步問題 */}
+              {/* STEP 2 INVITATION: 升級 Dream Master 深度解夢 (需加 3 星) */}
               <div className="mt-4 pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#aa9cff]/5 p-4 rounded-2xl border border-[#aa9cff]/20">
                 <div className="space-y-1">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-[#c3b9ff]">
-                    <HelpCircle className="w-3.5 h-3.5 text-[#aa9cff]" />
-                    <span>需要進一步 AI 深入解密？</span>
-                    {currentUser && normalizeRole(currentUser.role) !== 'free' && (
-                      <span className="text-[10px] px-2 py-0.2 rounded-full bg-[#78e1b5]/20 text-[#78e1b5] border border-[#78e1b5]/30">
-                        {getRoleDisplayName(currentUser.role)} · 免扣星直接解鎖
+                    <Sparkles className="w-3.5 h-3.5 text-[#aa9cff]" />
+                    <span>升級 Dream Master 深度解夢？</span>
+                    {currentUser && normalizeRole(currentUser.role) !== 'free' ? (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#78e1b5]/20 text-[#78e1b5] border border-[#78e1b5]/30">
+                        {getRoleDisplayName(currentUser.role)} · 免扣星尊享
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 font-mono">
+                        折抵後只需 +3 顆星 ⭐
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-[#aab3d2] leading-relaxed">
                     {currentUser && normalizeRole(currentUser.role) === 'free'
-                      ? `星星幣 = 免費用戶嘅代幣，睇廣告賺，唔使俾真金白銀都可以試進階功能（每次消耗 1 顆 · 結餘：${currentUser.stars ?? 2} 顆）。付費會員可直接全解鎖、唔使睇廣告！`
-                      : '付費會員已享尊貴特權：直接解鎖回答 3 條深入問題，由 AI 串連榮格典籍生成四層深度架構，並同步更新你的 DREAM DNA™️。'}
+                      ? `你已完成初步分析（消耗 3 顆星）。現只需再加 3 顆星星幣（目前結餘：${currentUser.stars ?? 0} 顆），即可展開 400-800 字深度心理學剖析與典籍文獻交叉檢索！`
+                      : '付費會員已享尊貴特權：直接解鎖 Dream Master 深度心理學剖析，並同步更新你的 DREAM DNA™️。'}
                   </p>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
+                <div className="flex flex-wrap items-center gap-2 shrink-0">
                   {currentUser && normalizeRole(currentUser.role) === 'free' && onOpenEarnStars && (
                     <button
                       type="button"
@@ -1288,24 +1326,25 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
 
                   <button
                     type="button"
-                    onClick={handleOpenFurtherInquiry}
-                    disabled={isDeepAnalyzing}
-                    className="btn text-xs px-5 py-2.5 font-semibold shrink-0 flex items-center gap-1.5 shadow-md shadow-[#aa9cff]/20 cursor-pointer"
-                    id="trigger-further-inquiry-btn"
+                    onClick={handleRunMasterAnalysis}
+                    disabled={isMasterAnalyzing}
+                    className="btn text-xs px-5 py-2.5 font-bold shrink-0 flex items-center gap-1.5 shadow-md shadow-[#aa9cff]/20 cursor-pointer bg-gradient-to-r from-[#aa9cff] to-[#71d9ff] text-[#0a0d1d] hover:brightness-110"
+                    id="trigger-master-upgrade-from-quick-btn"
                   >
-                    {isDeepAnalyzing ? (
+                    {isMasterAnalyzing ? (
                       <>
-                        <span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        <span>深度解讀中…</span>
+                        <span className="w-3.5 h-3.5 border-2 border-[#0a0d1d] border-t-transparent rounded-full animate-spin" />
+                        <span>深度解析中…</span>
                       </>
                     ) : (
                       <>
+                        <Sparkles className="w-3.5 h-3.5" />
                         <span>
                           {currentUser && normalizeRole(currentUser.role) !== 'free'
-                            ? '👑 直接進入深入解密 (回答 3 題)'
-                            : (currentUser?.stars ?? 2) >= 1
-                            ? '🔮 使用 1 星進入深入解密 (回答 3 題)'
-                            : '🎬 儲星星幣以解鎖深入解密'}
+                            ? '👑 直接升級 Dream Master 深度解夢'
+                            : (currentUser?.stars ?? 0) >= 3
+                            ? '🔮 加 3 星升級 Dream Master 深度解夢'
+                            : '🎬 儲星星幣加 3 星升級深度解夢'}
                         </span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </>
@@ -1650,15 +1689,6 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
         onClose={() => setIsTherapeuticOpen(false)}
         therapists={therapists}
         prefilledDreamText={dream}
-      />
-
-      {/* Dreamscape Subconscious Portal Modal */}
-      <DreamPortalModal
-        isOpen={isPortalModalOpen}
-        onClose={() => setIsPortalModalOpen(false)}
-        onSelectSymbolPrompt={(text) => {
-          setDream((prev) => (prev.trim() ? `${prev.trim()}，${text}` : text));
-        }}
       />
     </div>
   );

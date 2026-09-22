@@ -19,7 +19,6 @@ import {
   Eye,
 } from 'lucide-react';
 import { TherapeuticSupportModal } from './TherapeuticSupportModal';
-import { DreamPortalModal } from './DreamPortalModal';
 import { TherapistItem } from '../types';
 
 interface HomeViewProps {
@@ -40,7 +39,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
 }) => {
   const [draftDream, setDraftDream] = useState('');
   const [isTherapeuticOpen, setIsTherapeuticOpen] = useState(false);
-  const [isPortalModalOpen, setIsPortalModalOpen] = useState(false);
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
 
   // Structured guide prompt additions
@@ -129,47 +127,24 @@ export const HomeView: React.FC<HomeViewProps> = ({
           </div>
         </div>
 
-        {/* Dual Column Layout: Dream Input Box + Subconscious Portal Card */}
-        <div className="max-w-6xl mx-auto mt-8 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start text-left">
-          {/* Left Column: Interactive Dream Input Box (7 Cols on Desktop) */}
-          <div className="lg:col-span-7 dreambox relative z-10 w-full" id="hero-dreambox">
-            {/* Top Bar */}
-            <div className="flex items-center justify-between p-3.5 sm:p-4 border-b border-white/5 bg-white/[0.02]">
-              <span className="text-xs font-semibold text-[#c3b9ff] flex items-center gap-1.5">
-                <Sparkles className="w-3.5 h-3.5 text-[#aa9cff]" />
-                <span>記錄今晨夢境</span>
-              </span>
-              <span className="text-[11px] text-[#8e98b7]">輸入醒來記得的任何片段</span>
-            </div>
+        {/* Centered Clean Dream Input Box */}
+        <div className="max-w-3xl mx-auto mt-7 dreambox relative z-10 w-full shadow-2xl border border-white/10 rounded-3xl" id="hero-dreambox">
+          {/* Top Bar */}
+          <div className="flex items-center justify-between p-3.5 sm:p-4 border-b border-white/5 bg-white/[0.02]">
+            <span className="text-xs font-semibold text-[#c3b9ff] flex items-center gap-1.5">
+              <Sparkles className="w-3.5 h-3.5 text-[#aa9cff]" />
+              <span>記錄今晨夢境</span>
+            </span>
+            <span className="text-[11px] text-[#8e98b7]">輸入醒來記得的任何片段 · 建議 15 字以上</span>
+          </div>
 
-            {/* Textarea Area */}
-            <div className="relative p-3.5 sm:p-4">
-              <textarea
-                value={draftDream}
-                onChange={(e) => setDraftDream(e.target.value)}
-                placeholder="寫低你記得嘅夢境……醒來時有甚麼畫面？你當時感覺點？（可自由輸入或點擊下方標籤快速加字）"
-                id="hero-dream-textarea"
-                rows={4}
-                className="w-full bg-transparent border-0 text-white placeholder-[#7c88aa] text-base focus:outline-none resize-none leading-relaxed min-h-[130px] sm:min-h-[140px]"
-              />
-              {/* Live Character Count indicator */}
-              <div className="flex items-center justify-between text-[11px] pt-1 text-[#8e98b7]">
-                <span>
-                  {draftDream.trim().length >= 15 ? (
-                    <span className="text-[#78e1b5]">✓ 已達 {draftDream.trim().length} 字，符合解析標準</span>
-                  ) : draftDream.trim().length > 0 ? (
-                    <span className="text-amber-300">目前 {draftDream.trim().length} 字（建議達 15 字以上）</span>
-                  ) : (
-                    <span>自由記錄醒來片段</span>
-                  )}
-                </span>
-                <span className="font-mono text-[#aa9cff]">{draftDream.trim().length} 字</span>
-              </div>
+          {/* 記夢引導（醒來記憶喚醒提示，置頂重要位置優先引導造夢者） */}
+          <div className="px-3.5 sm:px-4 py-2.5 bg-[#aa9cff]/10 border-b border-white/10 flex flex-wrap items-center justify-between gap-2" id="hero-memory-guide">
+            <div className="flex items-center gap-1.5 text-xs font-semibold text-[#c3b9ff]">
+              <Sparkles className="w-3.5 h-3.5 text-[#aa9cff]" />
+              <span>記夢引導（點擊帶入回憶結構）：</span>
             </div>
-
-            {/* Mobile-Friendly Structured Prompting Chips */}
-            <div className="px-3.5 sm:px-4 py-2 border-t border-white/5 bg-black/20 flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] text-[#8e98b7] self-center mr-1">引導提示：</span>
+            <div className="flex flex-wrap items-center gap-1.5">
               {[
                 { label: '👥 有邊啲人物？', text: '【夢中人物】：' },
                 { label: '📍 場景係邊度？', text: '【場景地點】：' },
@@ -180,140 +155,88 @@ export const HomeView: React.FC<HomeViewProps> = ({
                   key={idx}
                   type="button"
                   onClick={() => handleAppendPrompt(chip.text)}
-                  className="text-[11px] px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/10 text-[#aab3d2] hover:text-white border border-white/5 transition-colors cursor-pointer"
+                  className="text-xs px-2.5 py-1 rounded-lg bg-white/10 hover:bg-[#aa9cff]/20 text-[#cbd2ef] hover:text-white border border-white/15 hover:border-[#aa9cff]/40 transition-all cursor-pointer font-medium active:scale-95"
+                  title={`點擊加入「${chip.text}」結構`}
                 >
                   {chip.label}
                 </button>
               ))}
             </div>
+          </div>
 
-            {/* Quick Word Addition Chips */}
-            <div className="px-3.5 sm:px-4 py-1.5 border-t border-white/5 bg-black/30 flex flex-wrap items-center gap-1.5">
-              <span className="text-[11px] text-[#aa9cff] self-center mr-1 font-medium">快速加字：</span>
-              {[
-                { label: '🌊 海洋水流', text: '海洋大水' },
-                { label: '👣 赤腳無鞋', text: '赤腳沒穿鞋' },
-                { label: '🏃 被人追趕', text: '被黑影追趕狂奔' },
-                { label: '🏚️ 舊居祖屋', text: '童年舊屋' },
-                { label: '🕯️ 家宅神枱', text: '神枱香火' },
-                { label: '🏫 課室考試', text: '學校課室考試' },
-              ].map((w, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => {
-                    setDraftDream((prev) => {
-                      const trimmed = prev.trim();
-                      return trimmed ? `${trimmed}，夢見${w.text}` : `昨晚夢見${w.text}`;
-                    });
-                  }}
-                  className="text-[11px] px-2 py-0.5 rounded-md bg-[#aa9cff]/10 hover:bg-[#aa9cff]/20 text-[#c3b9ff] border border-[#aa9cff]/20 transition-colors cursor-pointer"
-                  title={`點擊加入「${w.label}」`}
-                >
-                  +{w.label}
-                </button>
-              ))}
-            </div>
-
-            {/* Primary Action Footer with Clear Single CTA Button */}
-            <div className="dreamboxActions p-4 flex flex-col sm:flex-row items-center justify-between gap-3.5 border-t border-white/10 bg-black/40">
-              <div className="text-xs text-[#8e98b7] flex items-center gap-2 text-center sm:text-left">
-                <span>✨ 免費輸入即獲基本分析</span>
-                <span>•</span>
-                <span>🧠 支援串連過往夢境累積指紋</span>
-              </div>
-
-              {/* Primary CTA - Distinct & Explicit to reduce hesitation */}
-              <button
-                type="button"
-                onClick={handleStart}
-                className="w-full sm:w-auto btn text-sm sm:text-base px-7 py-3 font-bold shadow-xl shadow-[#aa9cff]/25 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-                id="hero-cta-record-btn"
-              >
-                <span>免費記錄第一個夢</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
+          {/* Textarea Area */}
+          <div className="relative p-3.5 sm:p-4">
+            <textarea
+              value={draftDream}
+              onChange={(e) => setDraftDream(e.target.value)}
+              placeholder="寫低你記得嘅夢境……醒來時有甚麼畫面？你當時感覺點？（可點擊上方「記夢引導」快速帶入提示，或直接自由書寫）"
+              id="hero-dream-textarea"
+              rows={4}
+              className="w-full bg-transparent border-0 text-white placeholder-[#7c88aa] text-base focus:outline-none resize-none leading-relaxed min-h-[130px] sm:min-h-[140px]"
+            />
+            {/* Live Character Count indicator */}
+            <div className="flex items-center justify-between text-[11px] pt-1 text-[#8e98b7]">
+              <span>
+                {draftDream.trim().length >= 15 ? (
+                  <span className="text-[#78e1b5]">✓ 已達 {draftDream.trim().length} 字，可開始深度分析</span>
+                ) : draftDream.trim().length > 0 ? (
+                  <span className="text-amber-300">目前 {draftDream.trim().length} 字（建議達 15 字以上）</span>
+                ) : (
+                  <span>自由記錄醒來片段</span>
+                )}
+              </span>
+              <span className="font-mono text-[#aa9cff]">{draftDream.trim().length} 字</span>
             </div>
           </div>
 
-          {/* Right Column: Visual Dream Portal Card (5 Cols on Desktop) */}
-          <div className="lg:col-span-5 relative w-full flex flex-col rounded-3xl overflow-hidden glass-modern border border-[#aa9cff]/30 shadow-2xl shadow-[#aa9cff]/20 group transition-all duration-300 hover:border-[#aa9cff]/60">
-            {/* Image Artwork Container */}
-            <div className="relative aspect-[16/10] sm:aspect-[16/9] lg:aspect-[4/3] w-full overflow-hidden cursor-pointer" onClick={() => setIsPortalModalOpen(true)}>
-              <img
-                src="/dream_cover_vertical.jpg"
-                alt="夢境宇宙門戶 - 潛意識之鑰與櫻花浮島"
-                referrerPolicy="no-referrer"
-                className="w-full h-full object-cover object-center transition-transform duration-700 group-hover:scale-105"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[#0e1329] via-[#0e1329]/20 to-transparent" />
-              
-              {/* Floating Archetype Badge */}
-              <div className="absolute top-3 left-3 px-3 py-1 rounded-full bg-black/65 backdrop-blur-md border border-white/20 text-xs font-semibold text-white flex items-center gap-1.5 shadow-lg">
-                <Key className="w-3.5 h-3.5 text-[#ffd27a]" />
-                <span>92項核心意象 · 視覺門戶</span>
-              </div>
+          {/* Secondary Helper: Quick Word Addition Chips (次要輔助：點擊加字／意象詞) */}
+          <div className="px-3.5 sm:px-4 py-2 border-t border-white/5 bg-black/30 flex flex-wrap items-center gap-1.5">
+            <span className="text-[11px] text-[#8e98b7] self-center mr-1">補充意象詞：</span>
+            {[
+              { label: '🌊 海洋水流', text: '海洋大水' },
+              { label: '👣 赤腳無鞋', text: '赤腳沒穿鞋' },
+              { label: '🏃 被人追趕', text: '被黑影追趕狂奔' },
+              { label: '🏚️ 舊居祖屋', text: '童年舊屋' },
+              { label: '🕯️ 家宅神枱', text: '神枱香火' },
+              { label: '🏫 課室考試', text: '學校課室考試' },
+              { label: '🚪 緊閉門鎖', text: '打不開的門' },
+              { label: '🕳️ 高處墜落', text: '失足墜落' },
+            ].map((w, idx) => (
+              <button
+                key={idx}
+                type="button"
+                onClick={() => {
+                  setDraftDream((prev) => {
+                    const trimmed = prev.trim();
+                    return trimmed ? `${trimmed}，夢見${w.text}` : `昨晚夢見${w.text}`;
+                  });
+                }}
+                className="text-[11px] px-2 py-0.5 rounded-md bg-[#aa9cff]/10 hover:bg-[#aa9cff]/20 text-[#c3b9ff] border border-[#aa9cff]/20 transition-colors cursor-pointer"
+                title={`點擊加入「${w.label}」`}
+              >
+                +{w.label}
+              </button>
+            ))}
+          </div>
 
-              {/* Preview Explore Button on Image */}
-              <div className="absolute bottom-3 right-3 px-3.5 py-1.5 rounded-xl bg-[#0e1329]/80 hover:bg-[#0e1329] backdrop-blur-md border border-white/25 text-xs font-medium text-white flex items-center gap-1.5 transition-all shadow-lg">
-                <Eye className="w-3.5 h-3.5 text-[#aa9cff]" />
-                <span>點擊探索圖解</span>
-              </div>
+          {/* Primary Action Footer with Clear Single CTA Button */}
+          <div className="dreamboxActions p-4 flex flex-col sm:flex-row items-center justify-between gap-3.5 border-t border-white/10 bg-black/40">
+            <div className="text-xs text-[#8e98b7] flex items-center gap-2 text-center sm:text-left">
+              <span>經典心理學原型意象</span>
+              <span>•</span>
+              <span>專屬深度心靈洞察</span>
             </div>
 
-
-            {/* Card Content & Symbol Chips */}
-            <div className="p-4 sm:p-5 flex flex-col justify-between flex-1 space-y-3">
-              <div>
-                <div className="flex items-center justify-between gap-2 mb-1.5">
-                  <h3 className="text-base font-serif font-bold text-white tracking-tight flex items-center gap-1.5">
-                    <Sparkles className="w-4 h-4 text-[#aa9cff]" />
-                    <span>夢境之鑰與潛意識浮島</span>
-                  </h3>
-                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-[#71d9ff]/10 text-[#71d9ff] border border-[#71d9ff]/20 font-mono">
-                    22本大師典籍
-                  </span>
-                </div>
-                <p className="text-xs text-[#aab3d2] leading-relaxed">
-                  融合榮格「自性化浮島」、弗洛伊德「心靈之鑰」與情緒彩虹星河。點擊即可沉浸解析每一處畫面背後對應的心理學原型。
-                </p>
-              </div>
-
-              {/* Quick Inspiration Pills from Artwork */}
-              <div>
-                <div className="text-[11px] text-[#8e98b7] mb-1.5 font-medium">快速加入本畫作象徵元素：</div>
-                <div className="flex flex-wrap gap-1.5">
-                  {[
-                    { label: '🗝️ 黃金鑰匙', text: '找到了懸浮於雲海的發光金鑰匙' },
-                    { label: '🌸 櫻花浮島', text: '漂浮在空中的綠色小島與盛開櫻花' },
-                    { label: '🌈 彩虹光流', text: '像彩虹一般發光的河流穿過雲海' },
-                    { label: '🌌 翠綠極光', text: '天空中舞動著翠綠色的奇幻極光' },
-                  ].map((p, idx) => (
-                    <button
-                      key={idx}
-                      type="button"
-                      onClick={() => handleAppendPrompt(`【視覺象徵】：${p.text}`)}
-                      className="text-[11px] px-2.5 py-1 rounded-lg bg-white/[0.04] hover:bg-[#aa9cff]/20 text-[#c3b9ff] border border-white/10 hover:border-[#aa9cff]/30 transition-all cursor-pointer"
-                      title="點擊套用至夢境輸入框"
-                    >
-                      +{p.label}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="pt-2 border-t border-white/10 flex items-center justify-between">
-                <span className="text-[11px] text-[#8e98b7]">已完整建置 1～92 號詞庫</span>
-                <button
-                  type="button"
-                  onClick={() => setIsPortalModalOpen(true)}
-                  className="text-xs font-semibold text-[#aa9cff] hover:text-white inline-flex items-center gap-1 cursor-pointer transition-colors"
-                >
-                  <span>意象全解析</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            </div>
+            {/* Primary CTA */}
+            <button
+              type="button"
+              onClick={handleStart}
+              className="w-full sm:w-auto btn text-sm sm:text-base px-7 py-3 font-bold shadow-xl shadow-[#aa9cff]/25 flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+              id="hero-cta-record-btn"
+            >
+              <span>記錄夢境並開始心理分析</span>
+              <ArrowRight className="w-4 h-4" />
+            </button>
           </div>
         </div>
       </section>
@@ -329,56 +252,72 @@ export const HomeView: React.FC<HomeViewProps> = ({
             無需任何預設範本，直接看懂你的夢
           </h2>
           <p className="text-xs sm:text-sm text-[#aab3d2] mt-2.5 max-w-xl mx-auto leading-relaxed">
-            告別千篇一律的「經典試試」與算命套話。每一次醒來，只要直接寫下你的真實所夢，系統即刻展開三步心理學解讀與長期檔案串連。
+            告別千篇一律的「經典試試」與算命套話。每一次醒來，只要直接寫下你的真實所夢，系統即刻展開深度心理學解讀與長期檔案串連。
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-5 max-w-5xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto">
           {/* Step 1 */}
-          <div className="card p-6 sm:p-7 rounded-3xl bg-[#0e1224]/80 border border-white/10 relative group hover:border-[#aa9cff]/40 transition-colors">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-2xl font-mono font-black text-[#aa9cff]/60">01</span>
-              <div className="w-10 h-10 rounded-2xl bg-[#aa9cff]/15 border border-[#aa9cff]/30 flex items-center justify-center text-[#c3b9ff]">
-                <Brain className="w-5 h-5" />
+          <div className="card p-5 sm:p-6 rounded-3xl bg-[#0e1224]/80 border border-white/10 relative group hover:border-[#aa9cff]/40 transition-colors">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xl font-mono font-black text-[#aa9cff]/60">01</span>
+              <div className="w-9 h-9 rounded-xl bg-[#aa9cff]/15 border border-[#aa9cff]/30 flex items-center justify-center text-[#c3b9ff]">
+                <Brain className="w-4 h-4" />
               </div>
             </div>
-            <h3 className="text-base sm:text-lg font-serif font-bold text-white mb-2">
-              寫下真實夢境細節
+            <h3 className="text-sm sm:text-base font-serif font-bold text-white mb-1.5">
+              1. 夢境真實記錄
             </h3>
-            <p className="text-xs sm:text-[13px] text-[#8d97b5] leading-relaxed">
-              醒來後自由寫下你記得的人物、場景或即時情緒（至少 15 字，亦可善用上方引導標籤）。這是你獨一無二的潛意識投影，無需任何他人範本。
+            <p className="text-xs text-[#8d97b5] leading-relaxed">
+              醒來後自由記述場景、情節與真實感受（至少 15 字），細膩捕捉潛意識留下的心靈印記。
             </p>
           </div>
 
           {/* Step 2 */}
-          <div className="card p-6 sm:p-7 rounded-3xl bg-[#0e1224]/80 border border-white/10 relative group hover:border-[#71d9ff]/40 transition-colors">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-2xl font-mono font-black text-[#71d9ff]/60">02</span>
-              <div className="w-10 h-10 rounded-2xl bg-[#71d9ff]/15 border border-[#71d9ff]/30 flex items-center justify-center text-[#71d9ff]">
-                <BookOpen className="w-5 h-5" />
+          <div className="card p-5 sm:p-6 rounded-3xl bg-[#0e1224]/80 border border-white/10 relative group hover:border-[#71d9ff]/40 transition-colors">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xl font-mono font-black text-[#71d9ff]/60">02</span>
+              <div className="w-9 h-9 rounded-xl bg-[#71d9ff]/15 border border-[#71d9ff]/30 flex items-center justify-center text-[#71d9ff]">
+                <BookOpen className="w-4 h-4" />
               </div>
             </div>
-            <h3 className="text-base sm:text-lg font-serif font-bold text-white mb-2">
-              SQL 心理意象庫精確檢索
+            <h3 className="text-sm sm:text-base font-serif font-bold text-white mb-1.5">
+              2. 經典心理原型對映
             </h3>
-            <p className="text-xs sm:text-[13px] text-[#8d97b5] leading-relaxed">
-              系統依據你的情節，精確檢索榮格原型、東方文化意象與當代文獻片段，產出 600～900 字深度心理學透視，嚴禁迷信算命與吉凶妄斷。
+            <p className="text-xs text-[#8d97b5] leading-relaxed">
+              深入參照榮格、佛洛伊德等大師心理典籍，發掘意象背後的深層象徵與心靈渴望，拒絕憑空胡猜。
             </p>
           </div>
 
           {/* Step 3 */}
-          <div className="card p-6 sm:p-7 rounded-3xl bg-[#0e1224]/80 border border-white/10 relative group hover:border-[#78e1b5]/40 transition-colors">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-2xl font-mono font-black text-[#78e1b5]/60">03</span>
-              <div className="w-10 h-10 rounded-2xl bg-[#78e1b5]/15 border border-[#78e1b5]/30 flex items-center justify-center text-[#78e1b5]">
-                <Compass className="w-5 h-5" />
+          <div className="card p-5 sm:p-6 rounded-3xl bg-[#0e1224]/80 border border-white/10 relative group hover:border-amber-400/40 transition-colors">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xl font-mono font-black text-amber-400/60">03</span>
+              <div className="w-9 h-9 rounded-xl bg-amber-400/15 border border-amber-400/30 flex items-center justify-center text-amber-300">
+                <Dna className="w-4 h-4" />
               </div>
             </div>
-            <h3 className="text-base sm:text-lg font-serif font-bold text-white mb-2">
-              沉澱 DREAM DNA™️ 與星圖
+            <h3 className="text-sm sm:text-base font-serif font-bold text-white mb-1.5">
+              3. 潛意識情緒補償
             </h3>
-            <p className="text-xs sm:text-[13px] text-[#8d97b5] leading-relaxed">
-              不同於關閉即忘的普通網站，你的每一次記錄都會連入專屬心靈星圖，洞察「水從洶湧到平靜」等重複模式，見證長期的自我整合。
+            <p className="text-xs text-[#8d97b5] leading-relaxed">
+              洞察白天被壓抑的情緒與未滿足心結，看見夢境為精神自我調節帶來的平衡與修復信號。
+            </p>
+          </div>
+
+          {/* Step 4 */}
+          <div className="card p-5 sm:p-6 rounded-3xl bg-[#0e1224]/80 border border-white/10 relative group hover:border-[#78e1b5]/40 transition-colors">
+            <div className="flex items-center justify-between mb-3">
+              <span className="text-xl font-mono font-black text-[#78e1b5]/60">04</span>
+              <div className="w-9 h-9 rounded-xl bg-[#78e1b5]/15 border border-[#78e1b5]/30 flex items-center justify-center text-[#78e1b5]">
+                <Compass className="w-4 h-4" />
+              </div>
+            </div>
+            <h3 className="text-sm sm:text-base font-serif font-bold text-white mb-1.5">
+              4. 深度洞察與自我整合
+            </h3>
+            <p className="text-xs text-[#8d97b5] leading-relaxed">
+              獲得專屬深度心理學報告：透視心靈天平、意象投射與生活覺察指南，溫柔引導自我整合。
             </p>
           </div>
         </div>
@@ -651,13 +590,6 @@ export const HomeView: React.FC<HomeViewProps> = ({
         isOpen={isTherapeuticOpen}
         onClose={() => setIsTherapeuticOpen(false)}
         therapists={therapists}
-      />
-
-      {/* Dreamscape Subconscious Portal Modal */}
-      <DreamPortalModal
-        isOpen={isPortalModalOpen}
-        onClose={() => setIsPortalModalOpen(false)}
-        onSelectSymbolPrompt={handleAppendPrompt}
       />
     </main>
   );

@@ -30,7 +30,7 @@ export const INITIAL_USERS: User[] = [
     email: 'free.user@gmail.com',
     display_name: 'Chris (一般會員)',
     role: 'free',
-    stars: 2,
+    stars: 6,
     created_at: '2026-09-10T14:15:00Z',
   },
   {

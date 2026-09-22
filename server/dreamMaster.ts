@@ -855,40 +855,29 @@ export async function executeSqlRetrieval(
 
   const totalItems = matchedSymbols.length + matchedThemes.length + combinedBooksAndRules.length;
 
-  // Step 5: Format retrieved data into compact pure text snippet
+  // Step 5: Format retrieved data into minimalist prompt injection snippet (最小化 Prompt 注入)
   let formattedSnippet = '';
   if (totalItems === 0) {
-    formattedSnippet = '無匹配資料庫記錄，依據通用夢工作理論，結合使用者個人現況做開放式解讀，勿硬套固定象徵。';
+    formattedSnippet = '無特定資料庫象徵匹配，依據通用心理學夢工作理論進行開放式解讀。';
   } else {
     const parts: string[] = [];
 
     if (matchedSymbols.length > 0) {
-      parts.push('【DreamAstra 核心意象 (最多8項)】\n' + matchedSymbols.map((s, i) => {
-        let text = `${i + 1}. ${s.symbol_emoji} ${s.symbol_name}: ${s.primary_meaning}`;
-        if (s.book_interpret && Object.keys(s.book_interpret).length > 0) {
-          const bookViews = Object.entries(s.book_interpret).map(([bookKey, interp]) => {
-            let bookName = bookKey;
-            const bookById = DREAM_BOOKS.find(bk => String(bk.book_id) === String(bookKey));
-            if (bookById) bookName = bookById.book_name;
-            const itemText = typeof interp === 'string' ? interp : (interp as any)?.text || JSON.stringify(interp);
-            return `《${bookName}》: ${itemText}`;
-          }).join('；');
-          text += ` [典籍詮釋: ${bookViews}]`;
-        }
-        if (s.cultural_meaning) {
-          text += ` (文獻考證: ${s.cultural_meaning})`;
-        }
-        return text;
-      }).join('\n'));
+      // 最小化 Prompt 注入：僅保留最關鍵前 4 項核心意象與一筆精要寓意
+      const topSymbols = matchedSymbols.slice(0, 4);
+      parts.push('【SQL 核心意象】: ' + topSymbols.map(s => `${s.symbol_emoji} ${s.symbol_name}(${s.primary_meaning})`).join('；'));
     }
     if (matchedThemes.length > 0) {
-      parts.push('【匹配主題 (最多3項)】\n' + matchedThemes.map((t, i) => `${i + 1}. ${t.theme_name}: ${t.psychological_meaning}`).join('\n'));
+      const topTheme = matchedThemes[0];
+      parts.push(`【SQL 夢境主題】: ${topTheme.theme_name}（${topTheme.psychological_meaning}）`);
     }
     if (combinedBooksAndRules.length > 0) {
-      parts.push('【參考書籍規則片段 (最多4項)】\n' + combinedBooksAndRules.map((b, i) => `${i + 1}. 《${b.source_title}》: ${b.snippet}`).join('\n'));
+      // 最小化書籍規則：僅保留前 2 條代表性古典心理學理論精簡片段（60字以內）
+      const topBooks = combinedBooksAndRules.slice(0, 2);
+      parts.push('【SQL 典籍理論】: ' + topBooks.map(b => `《${b.source_title}》: ${b.snippet.slice(0, 60)}...`).join('；'));
     }
 
-    formattedSnippet = parts.join('\n\n');
+    formattedSnippet = parts.join('\n');
   }
 
   return {
@@ -918,6 +907,7 @@ export async function executeSqlRetrieval(
 
 /**
  * 組裝請求內容：使用固定最小化系統提示詞，替換變數 {{retrieved_data}}、{{user_dream}}、{{user_context}}
+ * 嚴格遵循：夢境記錄 ➔ SQL 意象與書籍檢索 ➔ 最小化 Prompt 注入 ➔ 400-800 字 AI 專業心理分析
  */
 export function assembleDreamMasterPrompt(
   retrievedData: string,
@@ -927,71 +917,68 @@ export function assembleDreamMasterPrompt(
 ): { systemInstruction: string; contents: string } {
   const contextStrings: string[] = [];
   if (userContext?.gender) contextStrings.push(`性別：${userContext.gender}`);
-  if (userContext?.recent_status) contextStrings.push(`生活近況：${userContext.recent_status}`);
+  if (userContext?.recent_status) contextStrings.push(`近況：${userContext.recent_status}`);
   if (userContext?.is_recurring !== undefined) {
     const isRec = userContext.is_recurring === true || userContext.is_recurring === 'true' || userContext.is_recurring === '是';
-    contextStrings.push(`是否為重複出現的夢：${isRec ? '是（此夢重複出現）' : '否（初次出現）'}`);
+    contextStrings.push(`重複夢：${isRec ? '是' : '否'}`);
   }
 
-  const contextFormatted = contextStrings.length > 0 ? contextStrings.join('，') : '未提供補充背景';
+  const contextFormatted = contextStrings.length > 0 ? contextStrings.join('，') : '一般狀態';
 
   // 對話輪次管理：全新請求 vs 追問同一個夢
   if (followUp?.is_follow_up) {
     // 追問：僅攜帶上一輪解析摘要（<=200token），不攜帶完整檢索數據
     const systemInstruction = `
 你是一位具備嚴謹心理學素養的專業夢境分析師。
-【當前任務】：使用者正就「同一個夢境」進行深入追問。
-【嚴格規則】：
-1. 僅參考提供的「上一輪解析核心摘要」，回答使用者提出的追問。
-2. 禁止玄學算命、吉凶預言、宿命定論。
-3. 輸出文字必須包含結尾備註：「解夢僅心理參考，非命運預測」。
-4. 輸出字數嚴格控制在 600-900 字之內。
-5. 語言請使用通透、溫暖而具洞察力的繁體中文。
+【任務】：針對使用者追問進行 400-800 字深度心理學解答。
+【規則】：
+1. 嚴禁玄學算命、吉凶預言。
+2. 輸出文字必須包含結尾備註：「備註：解夢僅心理參考，非命運預測」。
+3. 輸出字數嚴格控制在 400-800 字之內。
+4. 使用通透、溫暖而具洞察力的繁體中文。
 `;
 
     const contents = `
-【上一輪解夢解析核心摘要 (壓縮 context)】:
-${followUp.previous_summary.slice(0, 400)}
+【上一輪解夢核心摘要】:
+${followUp.previous_summary.slice(0, 250)}
 
 【使用者追問內容】:
 ${followUp.follow_up_question}
 
-請依據心理學與情感自我整合視角，深入解答使用者的追問。字數維持 600-900 字，末尾註記「解夢僅心理參考，非命運預測」。
+請依據心理學與情感自我整合視角解答使用者的追問，字數維持 400-800 字，末尾註記「備註：解夢僅心理參考，非命運預測」。
 `;
 
     return { systemInstruction, contents };
   }
 
-  // 全新解夢請求：注入 {{retrieved_data}}, {{user_dream}}, {{user_context}}
+  // 全新解夢請求：最小化 Prompt 注入 (Minimalist Prompt Injection)
   const systemInstruction = `
-你是一位專業心理學與夢境解讀專家（Dream Master）。
-【核心工作方法】：
-依據後端注入的資料庫檢索片段 {{retrieved_data}}，結合使用者的生活背景資訊 {{user_context}}，對使用者記述的夢境 {{user_dream}} 進行深度心理學解析。
-
-【輸出過濾規則（強制執行）】：
-1. 嚴格禁止玄學算命、吉凶禍福預測或宿命論。
-2. 輸出文字必須包含結尾備註：「解夢僅心理參考，非命運預測」。
-3. 輸出字數嚴格控制在 600-900 字之間。
-4. 解構架構請包含：
-   - 夢境主題核心透視（結合檢索主題與當下心境）
-   - 關鍵象徵意象與心理投射（緊扣檢索意象，開放式解讀）
-   - 典籍理論與心靈補償洞察（緊扣檢索書籍規則）
-   - 給造夢者的生活自我整合指南
+你是一位具備嚴謹心理學素養的專業夢境分析師（Dream Master）。
+【流程規範】：依據「夢境記錄 ➔ SQL 意象與書籍檢索 ➔ 最小化 Prompt 注入 ➔ 400-800 字 AI 專業心理分析」架構執行。
+【規則】：
+1. 嚴格禁止玄學算命、吉凶禍福預言或宿命論。
+2. 輸出字數嚴格控制在 400-800 字之間。
+3. 輸出必須包含結尾備註：「備註：解夢僅心理參考，非命運預測」。
+4. 結構包含：
+   - 【夢境主題核心透視】（透視當下心理狀態與深層情感動態）
+   - 【關鍵象徵意象與心理投射】（結合 SQL 檢索意象進行象徵解碼）
+   - 【典籍理論與心靈補償洞察】（結合古典心理學如榮格自性化或佛洛伊德潛意識理論）
+   - 【生活自我整合指南】（提供 2-3 項具體日常心理調適建議）
    - 備註：解夢僅心理參考，非命運預測
-5. 全文以典雅、精煉、具有深度的繁體中文輸出。
+5. 全文以典雅精煉之繁體中文撰寫。
 `;
 
   const contents = `
-【資料庫檢索片段 {{retrieved_data}}】：
+【SQL 意象與書籍檢索結果（最小化注入）】：
 ${retrievedData}
 
-【使用者補充背景 {{user_context}}】：
+【造夢者背景】：
 ${contextFormatted}
 
-【使用者夢境文本 {{user_dream}}】：
+【夢境記錄】：
 ${userDream}
 
-請開始以 600-900 字進行深度心理學解讀，嚴禁玄學吉凶，文末必須包含「解夢僅心理參考，非命運預測」：
+請開始進行 400-800 字 AI 專業心理分析（文末附免責備註）：
 `;
 
   return { systemInstruction, contents };
@@ -1002,18 +989,17 @@ ${userDream}
  */
 export function compressSummaryForFollowup(fullText: string, symbols: string[]): string {
   if (!fullText) return '';
-  // 提取前段核心觀點與象徵，控制在 150-200 字以內
   const clean = fullText.replace(/備註：.*$/m, '').trim();
   const firstParagraph = clean.split('\n').filter(p => p.trim().length > 20)[0] || clean.slice(0, 150);
-  const symbolList = symbols.slice(0, 4).join('、');
-  return `【夢境核心摘要】：${firstParagraph.slice(0, 130)}……【關鍵意象】：${symbolList || '無固定意象'}。已初步完成補償心理學分析。`;
+  const symbolList = symbols.slice(0, 3).join('、');
+  return `【夢境核心摘要】：${firstParagraph.slice(0, 120)}……【關鍵意象】：${symbolList || '無固定意象'}。已完成 400-800 字心理學分析。`;
 }
 
 /**
  * 輸出過濾與修飾（SOP Step 8）：
  * 1. 嚴格過濾玄學算命、吉凶禍福之詞
- * 2. 強制包含備註「解夢僅心理參考，非命運預測」
- * 3. 字數控制於 600-900 字
+ * 2. 強制包含備註「備註：解夢僅心理參考，非命運預測」
+ * 3. 字數控制於 400-800 字
  */
 export function postProcessAndFilterAnalysis(rawText: string, userDream: string): string {
   let filtered = rawText;
@@ -1034,13 +1020,13 @@ export function postProcessAndFilterAnalysis(rawText: string, userDream: string)
     filtered = filtered.trim() + `\n\n${disclaimerNote}`;
   }
 
-  // 3. 字數控制（若過短則適當補充心理學自我整合指引，若過長則適度精簡）
-  if (filtered.length < 550) {
-    const supplement = `\n\n【心理整合反思】：榮格指出，每一個在夢境中令我們感到心緒波動的情節，都是自我心靈在尋求接納與補償的契機。試著在今天的生活中，給予自己十五分鐘的安靜時光，不用急著解決所有的現實問題，先接納夢中那個真實流露情感的自己。`;
+  // 3. 字數控制在 400-800 字（若過短補充心理學自我整合指引，若過長則適度修剪）
+  if (filtered.length < 400) {
+    const supplement = `\n\n【心理整合反思】：榮格指出，每一個在夢境中令我們心緒波動的情節，都是自我心靈尋求接納與補償的契機。試著在今天的生活中給予自己片刻寧靜，不用急於解決所有現實問題，先溫柔接納夢中那個真實流露情感的自己。`;
     filtered = filtered.replace(new RegExp(`\n\n${disclaimerNote}`), '') + supplement + `\n\n${disclaimerNote}`;
-  } else if (filtered.length > 980) {
-    // 截斷過度贅述段落並保留結尾備註
-    const body = filtered.replace(new RegExp(`\n\n${disclaimerNote}`), '').slice(0, 850).trim();
+  } else if (filtered.length > 820) {
+    // 截斷過度贅述段落並保留結尾備註，確保在 400-800 字範圍內
+    const body = filtered.replace(new RegExp(`\n\n${disclaimerNote}`), '').slice(0, 750).trim();
     filtered = body + `……\n\n${disclaimerNote}`;
   }
 
@@ -1048,7 +1034,7 @@ export function postProcessAndFilterAnalysis(rawText: string, userDream: string)
 }
 
 /**
- * 本地心理學 Fallback 解析器（保證離線或模型配額不足時仍能產出嚴格符合 SOP 之高品質解析）
+ * 本地心理學 Fallback 解析器（保證離線或模型配額不足時仍能產出嚴格符合 SOP 之高品質解析，控制於 400-800 字）
  */
 export function generateFallbackMasterAnalysis(
   cleanedDream: string,

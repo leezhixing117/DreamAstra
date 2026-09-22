@@ -210,7 +210,11 @@ export const PricingView: React.FC<PricingViewProps> = ({
               <ul className="space-y-2 text-[#cbd2ef]">
                 <li className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
-                  <span><b>AI 深入解密</b>（每個夢消耗 1 顆星星幣）</span>
+                  <span><b>初步分析</b>（每個夢消耗 3 顆星星幣）</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
+                  <span><b>Dream Master 深度解夢</b>（需 6 顆星星幣，或初步分析後加 3 星升級）</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />

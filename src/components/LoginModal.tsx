@@ -50,7 +50,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
         email: customEmail.trim(),
         display_name: customName.trim() || customEmail.split('@')[0],
         role: normRole,
-        stars: normRole === 'free' ? 2 : 999,
+        stars: normRole === 'free' ? 6 : 999,
         created_at: new Date().toISOString(),
       };
       onLogin(newUser);
@@ -127,7 +127,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                   email: 'free.user@gmail.com',
                   display_name: 'Chris (一般會員)',
                   role: 'free',
-                  stars: 2,
+                  stars: 6,
                 };
                 handleSelectUser(freeUser);
               }}
@@ -142,7 +142,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                     一般會員 · free.user@gmail.com
                   </div>
                   <div className="text-[11px] text-[#cbd2ef] mt-0.5">
-                    ✨ 特色：<b className="text-amber-300">可透過隨機彈出片儲星星</b>，用星星解鎖進階報告。
+                    ✨ 特色：<b className="text-amber-300">初步分析需 3 星 · 深度解夢需 6 星（或先初析再加 3 星）</b>。可睇片儲星星。
                   </div>
                 </div>
               </div>
