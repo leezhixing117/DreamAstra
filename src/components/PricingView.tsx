@@ -206,15 +206,23 @@ export const PricingView: React.FC<PricingViewProps> = ({
 
             {/* Feature Checklist */}
             <div className="space-y-2.5 text-xs">
-              <div className="text-[11px] font-bold text-amber-300 uppercase tracking-wider">星星幣可開啟：</div>
+              <div className="text-[11px] font-bold text-amber-300 uppercase tracking-wider">星星幣可開啟功能與規則：</div>
               <ul className="space-y-2 text-[#cbd2ef]">
                 <li className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
-                  <span><b>初步分析</b>（每個夢消耗 3 顆星星幣）</span>
+                  <span><b>初步分析（3 顆星）</b>：一般會員執行時扣除 3 顆星星幣，清楚標示「3 星 ⭐」</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
-                  <span><b>Dream Master 深度解夢</b>（需 6 顆星星幣，或初步分析後加 3 星升級）</span>
+                  <span><b>Dream Master 深度解夢（直接執行 6 顆星）</b>：直接執行需 6 顆星星幣，標示「6 星 ⭐」</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
+                  <span><b>初步分析後升級（折抵只需加 3 顆星）</b>：先初析後自動切換為「升級 Dream Master（+3 星 ⭐）」，僅扣差額 3 星</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <Check className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
+                  <span><b>貼心餘額提示引導</b>：星星不足時引導點擊隨機短片儲星（每次 +1 星）或升級會員</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
@@ -222,11 +230,11 @@ export const PricingView: React.FC<PricingViewProps> = ({
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
-                  <span><b>基礎 DREAM DNA 統計</b>（個人情緒、象徵詞頻分析，計算你已存夢境）</span>
+                  <span><b>基礎 DREAM DNA 統計</b>（個人情緒、象徵詞頻分析）與 30 夜探索中期報告</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
-                  <span>啟動 30 NIGHTS MYSTERY™️，睇每 7 日中期小報告</span>
+                  <span><b>CONSTELLATION™️ 夢境星圖宇宙連線</b>（即時串連夢境意象、情緒共鳴與心境軌跡）</span>
                 </li>
               </ul>
 
@@ -234,7 +242,7 @@ export const PricingView: React.FC<PricingViewProps> = ({
               <ul className="space-y-1.5 text-[#8d97b5]">
                 <li className="flex items-start gap-2">
                   <X className="w-3.5 h-3.5 text-white/40 shrink-0 mt-0.5" />
-                  <span>唔解鎖完整 CONSTELLATION™️ 互動星圖連線</span>
+                  <span>高清高解析度星圖圖片匯出需付費 VIP 權限</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <X className="w-3.5 h-3.5 text-white/40 shrink-0 mt-0.5" />
@@ -253,9 +261,9 @@ export const PricingView: React.FC<PricingViewProps> = ({
 
             {/* Micro Rules Notice */}
             <div className="mt-4 p-3 rounded-xl bg-amber-400/5 border border-amber-400/20 text-[11px] text-amber-200/80 space-y-1">
-              <div>• 星星幣永久保留，<b>唔會過期</b></div>
-              <div>• 解鎖後，對應夢境深度解密紀錄<b>永久保留</b></div>
-              <div>• 星星幣不可兌換現金，純作平台功能兌換</div>
+              <div>• 初步分析 3 星 · 深度解夢直接執行 6 星（先初析後升級只需加 3 星）</div>
+              <div>• 星星幣永久保留，<b>唔會過期</b>；解鎖之深度紀錄<b>永久保留</b></div>
+              <div>• 星星幣不可兌換現金，純作平台功能體驗兌換</div>
             </div>
           </div>
 
@@ -344,7 +352,7 @@ export const PricingView: React.FC<PricingViewProps> = ({
               <ul className="space-y-2 text-[#cbd2ef]">
                 <li className="flex items-start gap-2 font-semibold text-white">
                   <Check className="w-4 h-4 text-[#78e1b5] shrink-0 mt-0.5" />
-                  <span>全部星星幣功能全開（免睇廣告、免扣幣）</span>
+                  <span><b>全免扣星尊享特權</b>：無限次直接執行初步分析與 Dream Master 深度解夢，免看片免扣星</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-[#78e1b5] shrink-0 mt-0.5" />

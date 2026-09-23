@@ -1,6 +1,6 @@
 import React from 'react';
 import { User, normalizeRole, getRoleDisplayName } from '../types';
-import { Moon, ShieldCheck, UserCircle, LogIn, Sparkles, BookOpen, Star, Crown, Settings } from 'lucide-react';
+import { Moon, ShieldCheck, UserCircle, LogIn, Sparkles, BookOpen, Star, Crown, Settings, Compass } from 'lucide-react';
 
 interface NavbarProps {
   currentView: 'home' | 'app' | 'pricing' | 'privacy' | 'store' | 'admin';
@@ -9,6 +9,8 @@ interface NavbarProps {
   onOpenLogin: () => void;
   onLogout: () => void;
   onOpenEarnStars?: () => void;
+  activeSection?: 'workspace' | 'dna' | 'constellation' | 'mystery' | 'history' | 'patterns';
+  onNavigateSection?: (section: 'workspace' | 'dna' | 'constellation' | 'mystery' | 'history' | 'patterns') => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -18,6 +20,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   onOpenLogin,
   onLogout,
   onOpenEarnStars,
+  activeSection,
+  onNavigateSection,
 }) => {
   const normRole = currentUser ? normalizeRole(currentUser.role) : null;
   const isManagement = normRole === 'admin' || normRole === 'super_admin';
@@ -55,14 +59,39 @@ export const Navbar: React.FC<NavbarProps> = ({
 
           <button
             type="button"
-            onClick={() => setCurrentView('app')}
+            onClick={() => {
+              if (onNavigateSection) {
+                onNavigateSection('workspace');
+              } else {
+                setCurrentView('app');
+              }
+            }}
             className={`bg-transparent border-0 text-[14px] cursor-pointer flex items-center gap-1.5 ${
-              currentView === 'app' ? 'text-white font-semibold' : ''
+              currentView === 'app' && activeSection !== 'constellation' ? 'text-white font-semibold' : 'text-[#cbd2ef] hover:text-white'
             }`}
             id="nav-link-app"
           >
             <Sparkles className="w-4 h-4 text-[#aa9cff]" />
             我的夢境
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              if (onNavigateSection) {
+                onNavigateSection('constellation');
+              } else {
+                setCurrentView('app');
+              }
+            }}
+            className={`bg-transparent border-0 text-[14px] cursor-pointer flex items-center gap-1.5 ${
+              currentView === 'app' && activeSection === 'constellation' ? 'text-[#71d9ff] font-semibold' : 'text-[#cbd2ef] hover:text-white'
+            }`}
+            id="nav-link-constellation"
+            title="🌌 星圖 CONSTELLATION™️ · 夢境連線"
+          >
+            <Compass className="w-4 h-4 text-[#71d9ff]" />
+            <span>星圖連線</span>
           </button>
 
           <button

@@ -1,11 +1,13 @@
-import React, { useState } from 'react';
-import { BookBrainItem, EngineSettings, User, UserRole, ProductItem, AdVideoItem, TherapistItem, normalizeRole, getRoleDisplayName } from '../types';
+import React, { useState, useEffect } from 'react';
+import { BookBrainItem, EngineSettings, User, UserRole, ProductItem, AdVideoItem, TherapistItem, BannedRecord, normalizeRole, getRoleDisplayName } from '../types';
 import { INITIAL_PRODUCTS } from '../data/products';
 import { INITIAL_AD_VIDEOS } from '../data';
 import { INITIAL_THERAPISTS } from '../data/therapists';
-import { BookOpen, Sliders, Users, Upload, Check, AlertCircle, RefreshCw, UserCheck, Trash2, Edit3, Plus, ShieldCheck, ShieldAlert, Star, Crown, Settings, ShoppingBag, Package, Sparkles, Tv, Play, Video, Eye, Heart } from 'lucide-react';
+import { BookOpen, Sliders, Users, Upload, Check, AlertCircle, RefreshCw, UserCheck, Trash2, Edit3, Plus, Minus, ShieldCheck, ShieldAlert, ShieldBan, Star, Crown, Settings, ShoppingBag, Package, Sparkles, Tv, Play, Video, Eye, Heart, UserX, Search, Filter } from 'lucide-react';
 import { TherapistAdminManager } from './TherapistAdminManager';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+import { ConfirmDeleteUserModal } from './ConfirmDeleteUserModal';
+import { StarAdjustModal } from './StarAdjustModal';
 
 interface BookTheoryItem {
   id: string;
@@ -53,6 +55,7 @@ interface AdminConsoleProps {
   initialProducts?: ProductItem[];
   initialAdVideos?: AdVideoItem[];
   initialTherapists?: TherapistItem[];
+  bannedRecords?: BannedRecord[];
   currentUserId: string;
   currentUserRole?: UserRole;
   onUpdateSettings: (settings: EngineSettings) => void;
@@ -61,6 +64,7 @@ interface AdminConsoleProps {
   onUpdateProducts?: (products: ProductItem[]) => void;
   onUpdateAdVideos?: (adVideos: AdVideoItem[]) => void;
   onUpdateTherapists?: (therapists: TherapistItem[]) => void;
+  onUpdateBannedRecords?: (records: BannedRecord[]) => void;
   onSwitchUser?: (user: User) => void;
 }
 
@@ -71,6 +75,7 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
   initialProducts = INITIAL_PRODUCTS,
   initialAdVideos = INITIAL_AD_VIDEOS,
   initialTherapists = INITIAL_THERAPISTS,
+  bannedRecords = [],
   currentUserId,
   currentUserRole = 'super_admin',
   onUpdateSettings,
@@ -79,9 +84,10 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
   onUpdateProducts,
   onUpdateAdVideos,
   onUpdateTherapists,
+  onUpdateBannedRecords,
   onSwitchUser,
 }) => {
-  const [activeTab, setActiveTab] = useState<'books' | 'theories' | 'products' | 'advideos' | 'therapists' | 'engine' | 'users'>('books');
+  const [activeTab, setActiveTab] = useState<'advideos' | 'users' | 'products' | 'therapists' | 'engine'>('advideos');
   const [books, setBooks] = useState<BookBrainItem[]>(initialBooks);
   const [products, setProducts] = useState<ProductItem[]>(initialProducts);
   const [therapists, setTherapists] = useState<TherapistItem[]>(() => {
@@ -123,6 +129,36 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
   const [settings, setSettings] = useState<EngineSettings>(initialSettings);
   const [busy, setBusy] = useState('');
   const [notice, setNotice] = useState('');
+
+  // Synchronize users when initialUsers changes
+  useEffect(() => {
+    setUsers(initialUsers);
+  }, [initialUsers]);
+
+  // Banned records state
+  const [bannedRecordsState, setBannedRecordsState] = useState<BannedRecord[]>(() => {
+    if (bannedRecords && bannedRecords.length > 0) return bannedRecords;
+    try {
+      const saved = localStorage.getItem('dreamwisdom_banned_records');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    if (bannedRecords) {
+      setBannedRecordsState(bannedRecords);
+    }
+  }, [bannedRecords]);
+
+  // User Management State (Super Admin)
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [userToAdjustStars, setUserToAdjustStars] = useState<User | null>(null);
+  const [newBannedEmailInput, setNewBannedEmailInput] = useState('');
+  const [newBannedReasonInput, setNewBannedReasonInput] = useState('');
+  const [userSearchTerm, setUserSearchTerm] = useState('');
+  const [userRoleFilter, setUserRoleFilter] = useState<'all' | 'banned' | 'free' | 'paid' | 'admin' | 'super_admin'>('all');
 
   // Editing theory state
   const [editingTheory, setEditingTheory] = useState<BookTheoryItem | null>(null);
@@ -194,6 +230,7 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
     if (!productForm.name || !productForm.priceHKD) return;
 
     if (editingProduct) {
+      const availStatus = productForm.availabilityStatus || (productForm.inStock === false ? '目前已售罄，正安排補貨，敬請稍候；補貨到貨後會通知您。' : '現貨供應');
       const updated = products.map((p) =>
         p.id === editingProduct.id
           ? {
@@ -201,6 +238,8 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
               ...productForm,
               name: productForm.name || p.name,
               priceHKD: Number(productForm.priceHKD) || p.priceHKD,
+              availabilityStatus: availStatus,
+              inStock: availStatus === '現貨供應',
             }
           : p
       );
@@ -208,6 +247,7 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
       setNotice(`已更新產品「${productForm.name}」資料`);
       setEditingProduct(null);
     } else {
+      const availStatus = productForm.availabilityStatus || '現貨供應';
       const newProd: ProductItem = {
         id: 'prod_' + Date.now(),
         name: productForm.name || '新產品',
@@ -229,7 +269,8 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
         cautions: ['避免入眼，置於陰涼乾燥處'],
         imageUrl: productForm.imageUrl || 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&w=800&q=80',
         badge: productForm.badge,
-        inStock: true,
+        availabilityStatus: availStatus,
+        inStock: availStatus === '現貨供應',
         status: 'approved',
         reviewedByUserId: currentUserId,
         reviewedAt: new Date().toISOString(),
@@ -491,7 +532,7 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
     setBusy('');
   }
 
-  // Adjust Stars for a user (Super admin only)
+  // Adjust Stars for a user with delta (Super admin only)
   function handleAdjustStars(userToChange: User, delta: number) {
     if (!isSuperAdmin) {
       alert('只有高級管理員可以手動調整會員星星。');
@@ -504,7 +545,221 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
     );
     setUsers(updatedUsers);
     if (onUpdateUsers) onUpdateUsers(updatedUsers);
-    setNotice(`已為「${userToChange.email}」調整星星數為：${nextStars} 顆 ⭐`);
+    setNotice(`⭐ 已為「${userToChange.display_name || userToChange.email}」調整星星數為：${nextStars} 顆！`);
+  }
+
+  // Set Exact Stars for a user (Super admin only)
+  function handleSetExactStars(userToChange: User, newStars: number) {
+    if (!isSuperAdmin) {
+      alert('只有高級管理員可以手動調整會員星星。');
+      return;
+    }
+    const sanitizedStars = Math.max(0, newStars);
+    const updatedUsers = users.map((u) =>
+      u.id === userToChange.id ? { ...u, stars: sanitizedStars } : u
+    );
+    setUsers(updatedUsers);
+    if (onUpdateUsers) onUpdateUsers(updatedUsers);
+    setNotice(`⭐ 已成功為會員「${userToChange.display_name || userToChange.email}」設定星星為：${sanitizedStars} 顆！`);
+  }
+
+  // DELETE Member (Super admin only)
+  function handleDeleteUser(userToDeleteTarget: User, alsoBan: boolean, reason: string) {
+    if (!isSuperAdmin) {
+      alert('只有高級管理員具備刪除會員之最高權限。');
+      return;
+    }
+    if (userToDeleteTarget.id === currentUserId) {
+      alert('⚠️ 操作無效：高級管理員無法刪除當前登入的自己帳號！');
+      return;
+    }
+
+    const targetEmail = userToDeleteTarget.email.trim().toLowerCase();
+
+    // 1. Remove from users list
+    const updatedUsers = users.filter((u) => u.id !== userToDeleteTarget.id);
+    setUsers(updatedUsers);
+    if (onUpdateUsers) onUpdateUsers(updatedUsers);
+
+    // 2. Track deleted user ID to prevent automatic resurrection
+    try {
+      const savedDeleted = localStorage.getItem('dreamwisdom_deleted_user_ids');
+      const list: string[] = savedDeleted ? JSON.parse(savedDeleted) : [];
+      if (!list.includes(userToDeleteTarget.id)) {
+        list.push(userToDeleteTarget.id);
+        localStorage.setItem('dreamwisdom_deleted_user_ids', JSON.stringify(list));
+      }
+    } catch {}
+
+    // 3. If also banned, add email to persistent blacklist
+    if (alsoBan) {
+      const newRecord: BannedRecord = {
+        email: targetEmail,
+        reason: reason || '高級管理員執行會員刪除並永久封鎖',
+        banned_at: new Date().toISOString(),
+        banned_by: currentUserId,
+      };
+      const updatedBanned = [
+        newRecord,
+        ...bannedRecordsState.filter((b) => b.email.toLowerCase() !== targetEmail),
+      ];
+      setBannedRecordsState(updatedBanned);
+      if (onUpdateBannedRecords) onUpdateBannedRecords(updatedBanned);
+      try {
+        localStorage.setItem('dreamwisdom_banned_records', JSON.stringify(updatedBanned));
+      } catch {}
+    }
+
+    setNotice(
+      `🗑️ 已徹底刪除會員「${userToDeleteTarget.display_name || userToDeleteTarget.email}」${
+        alsoBan ? '，並已將其 Email 列入黑名單（禁止再次登記與登入）！' : '！'
+      }`
+    );
+    setUserToDelete(null);
+  }
+
+  // Toggle Ban / Unban for existing user
+  function handleToggleBanUser(targetUser: User) {
+    if (!isSuperAdmin) {
+      alert('只有高級管理員具備停權或解禁會員之權限。');
+      return;
+    }
+    if (targetUser.id === currentUserId) {
+      alert('⚠️ 無法對當前登入的自己帳號執行封禁停權！');
+      return;
+    }
+
+    const targetEmail = targetUser.email.trim().toLowerCase();
+    const isCurrentlyBanned =
+      targetUser.is_banned ||
+      bannedRecordsState.some((b) => b.email.toLowerCase() === targetEmail);
+
+    if (isCurrentlyBanned) {
+      // Unban
+      const updatedUsers = users.map((u) =>
+        u.id === targetUser.id
+          ? { ...u, is_banned: false, banned_at: undefined, banned_reason: undefined }
+          : u
+      );
+      setUsers(updatedUsers);
+      if (onUpdateUsers) onUpdateUsers(updatedUsers);
+
+      const updatedBanned = bannedRecordsState.filter((b) => b.email.toLowerCase() !== targetEmail);
+      setBannedRecordsState(updatedBanned);
+      if (onUpdateBannedRecords) onUpdateBannedRecords(updatedBanned);
+      try {
+        localStorage.setItem('dreamwisdom_banned_records', JSON.stringify(updatedBanned));
+      } catch {}
+
+      setNotice(`✅ 已解除會員「${targetUser.email}」的停權封禁，現已恢復登入與使用權限！`);
+    } else {
+      // Ban
+      const reason = window.prompt(
+        `請輸入停權封禁會員「${targetUser.email}」的原因（將禁止其登入）：`,
+        '違反平台使用守則或帳號異常'
+      );
+      if (reason === null) return;
+
+      const updatedUsers = users.map((u) =>
+        u.id === targetUser.id
+          ? {
+              ...u,
+              is_banned: true,
+              banned_at: new Date().toISOString(),
+              banned_reason: reason || '由高級管理員停權',
+            }
+          : u
+      );
+      setUsers(updatedUsers);
+      if (onUpdateUsers) onUpdateUsers(updatedUsers);
+
+      const newRecord: BannedRecord = {
+        email: targetEmail,
+        reason: reason || '由高級管理員停權',
+        banned_at: new Date().toISOString(),
+        banned_by: currentUserId,
+      };
+      const updatedBanned = [
+        newRecord,
+        ...bannedRecordsState.filter((b) => b.email.toLowerCase() !== targetEmail),
+      ];
+      setBannedRecordsState(updatedBanned);
+      if (onUpdateBannedRecords) onUpdateBannedRecords(updatedBanned);
+      try {
+        localStorage.setItem('dreamwisdom_banned_records', JSON.stringify(updatedBanned));
+      } catch {}
+
+      setNotice(`🚫 已將會員「${targetUser.email}」停權封禁，已禁止其登入！`);
+    }
+  }
+
+  // Manually add Email to Blacklist (Preemptively forbid registration & login)
+  function handleAddBannedEmail(e: React.FormEvent) {
+    e.preventDefault();
+    if (!isSuperAdmin) return;
+    const emailToBan = newBannedEmailInput.trim().toLowerCase();
+    if (!emailToBan || !emailToBan.includes('@')) {
+      alert('請輸入有效的 Email 地址！');
+      return;
+    }
+
+    const newRecord: BannedRecord = {
+      email: emailToBan,
+      reason: newBannedReasonInput.trim() || '由高級管理員手動列入黑名單',
+      banned_at: new Date().toISOString(),
+      banned_by: currentUserId,
+    };
+
+    const updatedBanned = [
+      newRecord,
+      ...bannedRecordsState.filter((b) => b.email.toLowerCase() !== emailToBan),
+    ];
+    setBannedRecordsState(updatedBanned);
+    if (onUpdateBannedRecords) onUpdateBannedRecords(updatedBanned);
+    try {
+      localStorage.setItem('dreamwisdom_banned_records', JSON.stringify(updatedBanned));
+    } catch {}
+
+    // Also mark any existing member with this email as banned
+    const updatedUsers = users.map((u) =>
+      u.email.toLowerCase() === emailToBan
+        ? {
+            ...u,
+            is_banned: true,
+            banned_at: new Date().toISOString(),
+            banned_reason: newRecord.reason,
+          }
+        : u
+    );
+    setUsers(updatedUsers);
+    if (onUpdateUsers) onUpdateUsers(updatedUsers);
+
+    setNewBannedEmailInput('');
+    setNewBannedReasonInput('');
+    setNotice(`🚫 已將「${emailToBan}」加入封禁黑名單，該 Email 將無法登記或登入！`);
+  }
+
+  // Remove Email from Blacklist
+  function handleRemoveBannedEmail(emailToRemove: string) {
+    if (!isSuperAdmin) return;
+    const targetEmail = emailToRemove.trim().toLowerCase();
+    const updatedBanned = bannedRecordsState.filter((b) => b.email.toLowerCase() !== targetEmail);
+    setBannedRecordsState(updatedBanned);
+    if (onUpdateBannedRecords) onUpdateBannedRecords(updatedBanned);
+    try {
+      localStorage.setItem('dreamwisdom_banned_records', JSON.stringify(updatedBanned));
+    } catch {}
+
+    // Unmark any existing user
+    const updatedUsers = users.map((u) =>
+      u.email.toLowerCase() === targetEmail
+        ? { ...u, is_banned: false, banned_at: undefined, banned_reason: undefined }
+        : u
+    );
+    setUsers(updatedUsers);
+    if (onUpdateUsers) onUpdateUsers(updatedUsers);
+
+    setNotice(`✅ 已將「${targetEmail}」從封禁黑名單中移除！`);
   }
 
   // Add / Edit Theory logic
@@ -584,8 +839,8 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
             </div>
             <p className="text-xs opacity-90 mt-0.5">
               {isSuperAdmin
-                ? '您擁有最高權限：可管理修改 Book Brain 典籍、廣告賺星影片庫、調整 AI 語氣參數，以及更改所有會員之等級與星星配置。'
-                : '您擁有內容管理權限：可管理與修改 Book Brain 典籍、廣告賺星影片庫、編輯夢境理論辭典、調整 AI 引擎參數。（更改會員等級需高級管理員權限）'}
+                ? '您擁有最高權限：可管理廣告賺星影片庫、更改所有會員等級與星星配置、調整 AI 語氣模型參數，以及管理選物店與諮詢師。'
+                : '您擁有內容管理權限：可管理廣告賺星影片庫、選物店產品、療癒諮詢師團隊，以及調整 AI 引擎參數。（更改會員等級需高級管理員權限）'}
             </p>
           </div>
         </div>
@@ -601,31 +856,6 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
 
       {/* Navigation Tabs */}
       <div className="flex flex-wrap gap-2 border-b border-white/10 pb-3">
-        <button
-          type="button"
-          onClick={() => setActiveTab('books')}
-          className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-            activeTab === 'books'
-              ? 'bg-[#71d9ff]/20 text-white border border-[#71d9ff]/40 shadow-sm'
-              : 'text-[#aab3d2] hover:text-white bg-white/5 border border-transparent'
-          }`}
-        >
-          <BookOpen className="w-4 h-4 text-[#71d9ff]" />
-          <span>📚 Book Brain 典籍 ({books.length})</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setActiveTab('theories')}
-          className={`px-4 py-2 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer ${
-            activeTab === 'theories'
-              ? 'bg-[#78e1b5]/20 text-white border border-[#78e1b5]/40 shadow-sm'
-              : 'text-[#aab3d2] hover:text-white bg-white/5 border border-transparent'
-          }`}
-        >
-          <Edit3 className="w-4 h-4 text-[#78e1b5]" />
-          <span>📑 夢境理論辭典管理 ({theories.length})</span>
-        </button>
 
         <button
           type="button"
@@ -1101,6 +1331,35 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
                 </div>
 
                 <div>
+                  <label className="text-[#cbd2ef] block mb-1">供應與活動狀態</label>
+                  <select
+                    value={
+                      productForm.availabilityStatus ||
+                      (productForm.inStock === false
+                        ? '目前已售罄，正安排補貨，敬請稍候；補貨到貨後會通知您。'
+                        : '現貨供應')
+                    }
+                    onChange={(e) => {
+                      const val = e.target.value as any;
+                      setProductForm({
+                        ...productForm,
+                        availabilityStatus: val,
+                        inStock: val === '現貨供應',
+                      });
+                    }}
+                    className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs focus:outline-none focus:border-emerald-500 cursor-pointer"
+                  >
+                    <option value="現貨供應">🟢 現貨供應 (全彩亮色 · 即刻下單)</option>
+                    <option value="目前已售罄，正安排補貨，敬請稍候；補貨到貨後會通知您。">
+                      ⚪ 目前已售罄，正安排補貨，敬請稍候；補貨到貨後會通知您。 (淺色識別)
+                    </option>
+                    <option value="本活動已圓滿結束">⚪ 本活動已圓滿結束 (淺色識別)</option>
+                    <option value="等待活動開始">⚪ 等待活動開始 (淺色識別)</option>
+                    <option value="候補中">⚪ 候補中 (淺色識別)</option>
+                  </select>
+                </div>
+
+                <div>
                   <label className="text-[#cbd2ef] block mb-1">規格容量 / 包裝</label>
                   <input
                     type="text"
@@ -1277,6 +1536,15 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
                             {!isPending && !isRejected && (
                               <span className="px-1.5 py-0.5 rounded-md text-[9px] bg-emerald-500/15 text-emerald-300 border border-emerald-500/30">
                                 ✅ 已公開
+                              </span>
+                            )}
+                            {(p.availabilityStatus === '現貨供應' || (!p.availabilityStatus && p.inStock !== false)) ? (
+                              <span className="px-2 py-0.5 rounded-full text-[9px] bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-bold">
+                                🟢 現貨供應
+                              </span>
+                            ) : (
+                              <span className="px-2 py-0.5 rounded-full text-[9px] bg-white/5 text-white/50 border border-white/10">
+                                ⚪ {p.availabilityStatus || '已售罄補貨中'}
                               </span>
                             )}
                           </div>
@@ -1869,147 +2137,479 @@ export const AdminConsole: React.FC<AdminConsoleProps> = ({
         </section>
       )}
 
-      {/* TAB 4: USER & TIER MANAGEMENT (高級管理員可更改等級；管理員僅檢視) */}
+      {/* TAB 4: USER & TIER MANAGEMENT (高級管理員可更改等級、增減星星、封禁、刪除會員) */}
       {activeTab === 'users' && (
-        <section className="card p-6" id="admin-access-control-card">
-          <div className="flex flex-wrap items-center justify-between gap-3 mb-4">
+        <section className="card p-6 space-y-6" id="admin-access-control-card">
+          {/* Header & Permissions Notice */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
             <div>
               <span className="badge">
                 <Users className="w-3 h-3 text-[#aa9cff]" />
-                MEMBER ROLES & ACCESS CONTROL
+                MEMBER ROLES, SECURITY & ACCESS CONTROL
               </span>
               <h2 style={{ fontSize: 24, marginTop: 8 }} className="text-white font-bold">
-                會員等級與權限管理
+                會員等級、安全封禁與星星管理
               </h2>
-              <p className="text-xs sm:text-sm text-[#cbd2ef] mt-0.5">
+              <p className="text-xs sm:text-sm text-[#cbd2ef] mt-1 leading-relaxed">
                 {isSuperAdmin ? (
                   <span className="text-[#78e1b5] font-semibold">
-                    ✓ 高級管理員專屬權限：您可在此直接更改任何會員的等級（一般會員 ↔ 付費會員 ↔ 管理員 ↔ 高級管理員）及增減星星。
+                    ✓ 高級管理員專屬最高權限：可增減會員星星（+/- 或自訂）、變更會員等級、停權封禁（禁止再登記與登入）、DELETE 永久刪除會員，以及管理黑名單庫。
                   </span>
                 ) : (
                   <span className="text-amber-400 font-semibold">
-                    🔒 內容管理員權限：您可檢視會員列表與點數，但更改會員等級僅限高級管理員操作。
+                    🔒 內容管理員權限：您可檢視會員列表與點數，修改等級、增減星星、封禁或刪除會員僅限高級管理員操作。
                   </span>
                 )}
               </p>
             </div>
 
-            <div className="text-xs text-[#8d97b5] font-mono">
-              總會員數：{users.length} 名
+            {/* Total Stats Counters */}
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="px-3 py-1.5 rounded-xl bg-white/5 border border-white/10 text-white font-mono">
+                總會員：<b className="text-white">{users.length}</b> 名
+              </span>
+              <span className="px-3 py-1.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-300 font-mono">
+                黑名單/封禁：<b className="text-red-400">{bannedRecordsState.length}</b> 筆
+              </span>
+              <span className="px-3 py-1.5 rounded-xl bg-[#78e1b5]/10 border border-[#78e1b5]/20 text-[#78e1b5] font-mono">
+                VIP付費：<b className="text-[#78e1b5]">{users.filter((u) => normalizeRole(u.role) === 'paid').length}</b> 名
+              </span>
             </div>
           </div>
 
-          <div className="overflow-x-auto">
+          {/* Search & Filter Controls */}
+          <div className="flex flex-wrap items-center justify-between gap-3 p-3.5 rounded-2xl bg-black/30 border border-white/10">
+            <div className="flex items-center gap-2 flex-1 min-w-[240px]">
+              <div className="relative w-full">
+                <input
+                  type="text"
+                  value={userSearchTerm}
+                  onChange={(e) => setUserSearchTerm(e.target.value)}
+                  placeholder="搜尋會員 Email 或姓名..."
+                  className="w-full pl-9 pr-3.5 py-2 rounded-xl bg-white/5 border border-white/15 text-white text-xs placeholder:text-white/30 focus:outline-none focus:border-[#aa9cff]"
+                />
+                <Search className="w-4 h-4 text-white/40 absolute left-3 top-2.5" />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Filter className="w-3.5 h-3.5 text-[#8d97b5]" />
+              <select
+                value={userRoleFilter}
+                onChange={(e) => setUserRoleFilter(e.target.value as any)}
+                className="px-3 py-2 rounded-xl bg-[#0e1224] border border-white/20 text-white text-xs focus:outline-none focus:border-[#aa9cff] cursor-pointer"
+              >
+                <option value="all">全部會員 ({users.length})</option>
+                <option value="banned">🚫 僅看已停權封禁</option>
+                <option value="free">🌱 一般會員</option>
+                <option value="paid">👑 付費會員 (VIP)</option>
+                <option value="admin">⚙️ 內容管理員</option>
+                <option value="super_admin">🛡️ 高級管理員</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Users Table */}
+          <div className="overflow-x-auto rounded-2xl border border-white/10">
             <table className="table w-full text-left" id="admin-users-table">
               <thead>
-                <tr className="border-b border-white/10 text-xs text-[#8d97b5]">
-                  <th className="py-2.5 px-3">會員資訊</th>
-                  <th className="py-2.5 px-3">當前等級</th>
-                  <th className="py-2.5 px-3">星星餘額</th>
-                  <th className="py-2.5 px-3">
-                    {isSuperAdmin ? '更改會員等級 (高級管理員專用)' : '等級權限狀態'}
+                <tr className="border-b border-white/10 bg-white/[0.02] text-xs text-[#8d97b5]">
+                  <th className="py-3 px-3">會員資訊</th>
+                  <th className="py-3 px-3">當前等級</th>
+                  <th className="py-3 px-3">星星餘額 (可增減)</th>
+                  <th className="py-3 px-3">
+                    {isSuperAdmin ? '等級調整 (高級管理員專用)' : '等級權限'}
                   </th>
-                  <th className="py-2.5 px-3 text-right">身份切換模擬</th>
+                  <th className="py-3 px-3">安全封禁狀態</th>
+                  <th className="py-3 px-3 text-right">管理操作</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {users.map((u) => {
-                  const roleNorm = normalizeRole(u.role);
-                  return (
-                    <tr key={u.id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="py-3 px-3">
-                        <div className="font-bold text-white text-xs">
-                          {u.display_name || u.email.split('@')[0]}
-                        </div>
-                        <div className="text-[11px] text-[#8d97b5] font-mono">{u.email}</div>
-                      </td>
+                {(() => {
+                  const filteredUsers = users.filter((u) => {
+                    const normSearch = userSearchTerm.trim().toLowerCase();
+                    const matchesSearch =
+                      !normSearch ||
+                      u.email.toLowerCase().includes(normSearch) ||
+                      (u.display_name && u.display_name.toLowerCase().includes(normSearch));
 
-                      <td className="py-3 px-3">
-                        <span
-                          className={`text-[11px] px-2.5 py-1 rounded-full border inline-flex items-center gap-1 ${
-                            roleNorm === 'super_admin'
-                              ? 'bg-[#aa9cff]/20 border-[#aa9cff]/40 text-[#c3b9ff]'
-                              : roleNorm === 'admin'
-                              ? 'bg-[#71d9ff]/20 border-[#71d9ff]/40 text-[#71d9ff]'
-                              : roleNorm === 'paid'
-                              ? 'bg-[#78e1b5]/20 border-[#78e1b5]/40 text-[#78e1b5]'
-                              : 'bg-amber-400/15 border-amber-400/30 text-amber-300'
-                          }`}
-                        >
-                          {roleNorm === 'super_admin' && <ShieldCheck className="w-3 h-3" />}
-                          {roleNorm === 'admin' && <Settings className="w-3 h-3" />}
-                          {roleNorm === 'paid' && <Crown className="w-3 h-3" />}
-                          {roleNorm === 'free' && <Star className="w-3 h-3" />}
-                          <span>{getRoleDisplayName(roleNorm)}</span>
-                        </span>
-                      </td>
+                    if (!matchesSearch) return false;
 
-                      <td className="py-3 px-3">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-xs font-mono font-bold text-amber-300">
-                            ⭐ {u.stars ?? (roleNorm === 'free' ? 2 : 999)}
-                          </span>
-                          {isSuperAdmin && (
-                            <button
-                              type="button"
-                              onClick={() => handleAdjustStars(u, 5)}
-                              className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 hover:bg-white/15 text-[#cbd2ef] cursor-pointer"
-                              title="為該會員增加 5 顆星星"
-                            >
-                              +5星
-                            </button>
-                          )}
-                        </div>
-                      </td>
+                    const isBanned =
+                      u.is_banned ||
+                      bannedRecordsState.some((b) => b.email.toLowerCase() === u.email.toLowerCase());
 
-                      {/* ROLE MODIFICATION COLUMN */}
-                      <td className="py-3 px-3">
-                        {isSuperAdmin ? (
+                    if (userRoleFilter === 'banned') return isBanned;
+                    if (userRoleFilter === 'all') return true;
+                    return normalizeRole(u.role) === userRoleFilter;
+                  });
+
+                  if (filteredUsers.length === 0) {
+                    return (
+                      <tr>
+                        <td colSpan={6} className="text-center py-8 text-[#8d97b5] text-xs">
+                          查無符合條件的會員
+                        </td>
+                      </tr>
+                    );
+                  }
+
+                  return filteredUsers.map((u) => {
+                    const roleNorm = normalizeRole(u.role);
+                    const isBanned =
+                      u.is_banned ||
+                      bannedRecordsState.some((b) => b.email.toLowerCase() === u.email.toLowerCase());
+                    const isSelf = u.id === currentUserId;
+
+                    return (
+                      <tr
+                        key={u.id}
+                        className={`hover:bg-white/[0.02] transition-colors ${
+                          isBanned ? 'bg-red-950/15' : ''
+                        }`}
+                      >
+                        {/* 1. Member Information */}
+                        <td className="py-3.5 px-3">
                           <div className="flex items-center gap-2">
-                            <select
-                              value={roleNorm}
-                              disabled={busy === u.id}
-                              onChange={(e) => handleRoleChange(u, e.target.value as UserRole)}
-                              className="px-2.5 py-1 rounded-lg bg-[#0e1224] border border-white/25 text-white text-xs font-medium focus:outline-none focus:border-[#aa9cff] cursor-pointer"
-                              id={`select-role-${u.id}`}
-                            >
-                              <option value="free">🌱 一般會員 (睇片儲星)</option>
-                              <option value="paid">👑 付費會員 (直接解鎖)</option>
-                              <option value="admin">⚙️ 管理員 (內容管理)</option>
-                              <option value="super_admin">🛡️ 高級管理員 (更改等級)</option>
-                            </select>
-                            {busy === u.id && <span className="text-[10px] text-[#78e1b5]">更新中…</span>}
+                            <span className="font-bold text-white text-xs">
+                              {u.display_name || u.email.split('@')[0]}
+                            </span>
+                            {isBanned && (
+                              <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 border border-red-500/35 font-bold flex items-center gap-1">
+                                <ShieldBan className="w-3 h-3" />
+                                🚫 已封禁停權
+                              </span>
+                            )}
+                            {isSelf && (
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#aa9cff]/20 text-[#c3b9ff] border border-[#aa9cff]/30">
+                                你
+                              </span>
+                            )}
                           </div>
-                        ) : (
-                          <div className="flex items-center gap-1 text-[11px] text-[#8d97b5]">
-                            <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
-                            <span>僅高級管理員可更改</span>
-                          </div>
-                        )}
-                      </td>
+                          <div className="text-[11px] text-[#8d97b5] font-mono mt-0.5">{u.email}</div>
+                          {u.created_at && (
+                            <div className="text-[10px] text-[#8d97b5]/60 mt-0.5">
+                              註冊於：{new Date(u.created_at).toLocaleDateString()}
+                            </div>
+                          )}
+                        </td>
 
-                      <td className="py-3 px-3 text-right">
-                        {onSwitchUser && (
-                          <button
-                            type="button"
-                            onClick={() => onSwitchUser(u)}
-                            className={`text-xs px-3 py-1 rounded-lg border transition-colors inline-flex items-center gap-1.5 cursor-pointer ${
-                              u.id === currentUserId
-                                ? 'border-[#aa9cff] text-[#aa9cff] bg-[#aa9cff]/10'
-                                : 'border-white/10 text-[#aab3d2] hover:bg-white/10 hover:text-white'
+                        {/* 2. Current Role */}
+                        <td className="py-3.5 px-3">
+                          <span
+                            className={`text-[11px] px-2.5 py-1 rounded-full border inline-flex items-center gap-1 ${
+                              roleNorm === 'super_admin'
+                                ? 'bg-[#aa9cff]/20 border-[#aa9cff]/40 text-[#c3b9ff]'
+                                : roleNorm === 'admin'
+                                ? 'bg-[#71d9ff]/20 border-[#71d9ff]/40 text-[#71d9ff]'
+                                : roleNorm === 'paid'
+                                ? 'bg-[#78e1b5]/20 border-[#78e1b5]/40 text-[#78e1b5]'
+                                : 'bg-amber-400/15 border-amber-400/30 text-amber-300'
                             }`}
                           >
-                            <UserCheck className="w-3 h-3" />
-                            <span>{u.id === currentUserId ? '當前登入者' : '以此登入'}</span>
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
+                            {roleNorm === 'super_admin' && <ShieldCheck className="w-3 h-3" />}
+                            {roleNorm === 'admin' && <Settings className="w-3 h-3" />}
+                            {roleNorm === 'paid' && <Crown className="w-3 h-3" />}
+                            {roleNorm === 'free' && <Star className="w-3 h-3" />}
+                            <span>{getRoleDisplayName(roleNorm)}</span>
+                          </span>
+                        </td>
+
+                        {/* 3. Star Balance with Quick +/- and Custom Adjust */}
+                        <td className="py-3.5 px-3">
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-2">
+                              <span className="text-xs font-mono font-black text-amber-300">
+                                ⭐ {u.stars ?? (roleNorm === 'free' ? 2 : 999)}
+                              </span>
+                              {isSuperAdmin && (
+                                <button
+                                  type="button"
+                                  onClick={() => setUserToAdjustStars(u)}
+                                  className="text-[10px] px-2 py-0.5 rounded-lg bg-amber-400/15 hover:bg-amber-400/25 border border-amber-400/30 text-amber-300 font-semibold cursor-pointer transition-colors"
+                                  title="點擊精準自訂該會員星星數量"
+                                >
+                                  ✏️ 自訂
+                                </button>
+                              )}
+                            </div>
+
+                            {/* Quick Add / Deduct Buttons */}
+                            {isSuperAdmin && (
+                              <div className="flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleAdjustStars(u, -5)}
+                                  className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 hover:bg-red-500/25 text-red-300 border border-red-500/30 font-mono cursor-pointer active:scale-95"
+                                  title="扣減 5 顆星星"
+                                >
+                                  -5
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAdjustStars(u, -1)}
+                                  className="text-[10px] px-1.5 py-0.5 rounded bg-red-500/15 hover:bg-red-500/25 text-red-300 border border-red-500/30 font-mono cursor-pointer active:scale-95"
+                                  title="扣減 1 顆星星"
+                                >
+                                  -1
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAdjustStars(u, 1)}
+                                  className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 font-mono cursor-pointer active:scale-95"
+                                  title="增加 1 顆星星"
+                                >
+                                  +1
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAdjustStars(u, 5)}
+                                  className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 font-mono cursor-pointer active:scale-95"
+                                  title="增加 5 顆星星"
+                                >
+                                  +5
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAdjustStars(u, 20)}
+                                  className="text-[10px] px-1.5 py-0.5 rounded bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border border-emerald-500/30 font-mono cursor-pointer active:scale-95"
+                                  title="增加 20 顆星星"
+                                >
+                                  +20
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </td>
+
+                        {/* 4. Role Modification Dropdown */}
+                        <td className="py-3.5 px-3">
+                          {isSuperAdmin ? (
+                            <div className="flex items-center gap-2">
+                              <select
+                                value={roleNorm}
+                                disabled={busy === u.id}
+                                onChange={(e) => handleRoleChange(u, e.target.value as UserRole)}
+                                className="px-2.5 py-1 rounded-lg bg-[#0e1224] border border-white/25 text-white text-xs font-medium focus:outline-none focus:border-[#aa9cff] cursor-pointer"
+                                id={`select-role-${u.id}`}
+                              >
+                                <option value="free">🌱 一般會員 (睇片儲星)</option>
+                                <option value="paid">👑 付費會員 (直接解鎖)</option>
+                                <option value="admin">⚙️ 管理員 (內容管理)</option>
+                                <option value="super_admin">🛡️ 高級管理員 (更改等級)</option>
+                              </select>
+                              {busy === u.id && (
+                                <span className="text-[10px] text-[#78e1b5]">更新中…</span>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-1 text-[11px] text-[#8d97b5]">
+                              <ShieldAlert className="w-3.5 h-3.5 text-amber-400" />
+                              <span>僅高級管理員可更改</span>
+                            </div>
+                          )}
+                        </td>
+
+                        {/* 5. Ban / Unban Security Control */}
+                        <td className="py-3.5 px-3">
+                          {isSuperAdmin ? (
+                            <div className="flex items-center gap-2">
+                              {isBanned ? (
+                                <button
+                                  type="button"
+                                  onClick={() => handleToggleBanUser(u)}
+                                  className="text-[11px] px-2.5 py-1 rounded-lg bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/35 text-emerald-300 font-semibold inline-flex items-center gap-1 cursor-pointer transition-colors"
+                                  title="解除此會員之停權封禁，恢復正常登入"
+                                >
+                                  <Check className="w-3 h-3" />
+                                  <span>解除封禁</span>
+                                </button>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={isSelf}
+                                  onClick={() => handleToggleBanUser(u)}
+                                  className={`text-[11px] px-2.5 py-1 rounded-lg border transition-colors inline-flex items-center gap-1 ${
+                                    isSelf
+                                      ? 'opacity-40 cursor-not-allowed bg-white/5 border-white/10 text-white/50'
+                                      : 'bg-red-500/15 hover:bg-red-500/25 border-red-500/30 text-red-300 cursor-pointer'
+                                  }`}
+                                  title={isSelf ? '無法對自己帳號封禁' : '封禁此會員，禁止其登入'}
+                                >
+                                  <ShieldBan className="w-3 h-3" />
+                                  <span>封禁會員</span>
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-[11px] text-[#8d97b5]">
+                              {isBanned ? '🚫 停權中' : '正常'}
+                            </span>
+                          )}
+                        </td>
+
+                        {/* 6. Management Actions: Delete & Identity Switch */}
+                        <td className="py-3.5 px-3 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            {/* Switch user */}
+                            {onSwitchUser && (
+                              <button
+                                type="button"
+                                onClick={() => onSwitchUser(u)}
+                                className={`text-xs px-2.5 py-1 rounded-lg border transition-colors inline-flex items-center gap-1 cursor-pointer ${
+                                  isSelf
+                                    ? 'border-[#aa9cff] text-[#aa9cff] bg-[#aa9cff]/10'
+                                    : 'border-white/10 text-[#aab3d2] hover:bg-white/10 hover:text-white'
+                                }`}
+                                title="模擬以該會員身份登入系統"
+                              >
+                                <UserCheck className="w-3 h-3" />
+                                <span>{isSelf ? '當前登入者' : '以此登入'}</span>
+                              </button>
+                            )}
+
+                            {/* DELETE Member Button (Super Admin Only) */}
+                            {isSuperAdmin && (
+                              <button
+                                type="button"
+                                disabled={isSelf}
+                                onClick={() => setUserToDelete(u)}
+                                className={`text-xs px-2.5 py-1 rounded-lg border transition-colors inline-flex items-center gap-1 ${
+                                  isSelf
+                                    ? 'opacity-30 cursor-not-allowed bg-white/5 border-white/10 text-white/40'
+                                    : 'bg-red-600/15 hover:bg-red-600/30 border-red-500/40 text-red-300 hover:text-white cursor-pointer'
+                                }`}
+                                title={isSelf ? '高級管理員無法刪除當前登入的自己' : '永久刪除該會員帳號'}
+                              >
+                                <Trash2 className="w-3 h-3" />
+                                <span>DELETE 刪除</span>
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  });
+                })()}
               </tbody>
             </table>
           </div>
+
+          {/* PERMANENT BLACKLIST REPOSITORY (禁止再次登記 & 登入) */}
+          {isSuperAdmin && (
+            <div className="p-5 rounded-2xl bg-[#090d1a] border border-red-500/25 space-y-4" id="admin-blacklist-section">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-xl bg-red-500/20 border border-red-500/40 text-red-400 flex items-center justify-center">
+                    <ShieldBan className="w-4 h-4" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                      <span>永久封禁黑名單庫（禁止再次登記與登入）</span>
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/20 text-red-300 font-mono">
+                        {bannedRecordsState.length} 個已封禁 Email
+                      </span>
+                    </h3>
+                    <p className="text-[11px] text-[#cbd2ef]">
+                      凡名單內之 Email，系統均全面阻擋登入；即使重新登記註冊，亦會直接被系統即時拒絕。
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Form to Preemptively Add Banned Email */}
+              <form onSubmit={handleAddBannedEmail} className="flex flex-wrap items-center gap-2 pt-2 border-t border-white/5">
+                <div className="flex-1 min-w-[220px]">
+                  <input
+                    type="email"
+                    required
+                    value={newBannedEmailInput}
+                    onChange={(e) => setNewBannedEmailInput(e.target.value)}
+                    placeholder="輸入欲封鎖之 Email (例如 spammer@domain.com)..."
+                    className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs placeholder:text-white/30 focus:outline-none focus:border-red-400"
+                  />
+                </div>
+                <div className="flex-1 min-w-[200px]">
+                  <input
+                    type="text"
+                    value={newBannedReasonInput}
+                    onChange={(e) => setNewBannedReasonInput(e.target.value)}
+                    placeholder="封禁原因 (例如：濫用服務 / 灌水攻擊)..."
+                    className="w-full px-3 py-2 rounded-xl bg-black/40 border border-white/20 text-white text-xs placeholder:text-white/30 focus:outline-none focus:border-red-400"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-500 text-white text-xs font-bold flex items-center gap-1.5 shadow-md shadow-red-600/25 transition-colors cursor-pointer shrink-0"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>＋ 加入封禁黑名單</span>
+                </button>
+              </form>
+
+              {/* Blacklist List */}
+              <div className="overflow-x-auto rounded-xl border border-white/10">
+                <table className="table w-full text-left text-xs">
+                  <thead>
+                    <tr className="border-b border-white/10 bg-white/[0.02] text-[#8d97b5]">
+                      <th className="py-2.5 px-3">封禁 Email (禁止登記&登入)</th>
+                      <th className="py-2.5 px-3">封鎖原因備註</th>
+                      <th className="py-2.5 px-3">封禁時間</th>
+                      <th className="py-2.5 px-3 text-right">解禁操作</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5">
+                    {bannedRecordsState.length === 0 ? (
+                      <tr>
+                        <td colSpan={4} className="text-center py-6 text-[#8d97b5] text-xs">
+                          目前黑名單為空，尚未有任何被永久封禁之 Email。
+                        </td>
+                      </tr>
+                    ) : (
+                      bannedRecordsState.map((rec) => (
+                        <tr key={rec.email} className="hover:bg-white/[0.02] transition-colors">
+                          <td className="py-2.5 px-3 font-mono text-red-300 font-semibold">
+                            {rec.email}
+                          </td>
+                          <td className="py-2.5 px-3 text-[#cbd2ef]">
+                            {rec.reason || '由高級管理員列入黑名單'}
+                          </td>
+                          <td className="py-2.5 px-3 text-[#8d97b5] text-[11px]">
+                            {new Date(rec.banned_at).toLocaleString()}
+                          </td>
+                          <td className="py-2.5 px-3 text-right">
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveBannedEmail(rec.email)}
+                              className="text-[11px] px-2.5 py-1 rounded-lg bg-white/5 hover:bg-white/15 border border-white/15 text-[#cbd2ef] hover:text-white cursor-pointer transition-colors"
+                            >
+                              解除黑名單
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
+
+          {/* Confirm Delete Member Modal */}
+          <ConfirmDeleteUserModal
+            isOpen={!!userToDelete}
+            onClose={() => setUserToDelete(null)}
+            user={userToDelete}
+            onConfirm={handleDeleteUser}
+          />
+
+          {/* Star Adjust Modal */}
+          <StarAdjustModal
+            isOpen={!!userToAdjustStars}
+            onClose={() => setUserToAdjustStars(null)}
+            user={userToAdjustStars}
+            onSave={handleSetExactStars}
+          />
         </section>
       )}
       {/* TAB: THERAPISTS REPOSITORY & MATCHING */}

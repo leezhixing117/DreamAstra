@@ -4,7 +4,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { User, BookBrainItem, EngineSettings, DreamEntry, AdVideoItem, TherapistItem, ProductItem, normalizeRole, getRoleDisplayName } from './types';
+import { User, BookBrainItem, EngineSettings, DreamEntry, AdVideoItem, TherapistItem, ProductItem, BannedRecord, normalizeRole, getRoleDisplayName } from './types';
 import { INITIAL_USERS, INITIAL_BOOKS, INITIAL_SETTINGS, INITIAL_DREAMS, INITIAL_AD_VIDEOS } from './data';
 import { INITIAL_THERAPISTS } from './data/therapists';
 import { Navbar } from './components/Navbar';
@@ -41,7 +41,25 @@ export default function App() {
   const [products, setProducts] = useState<ProductItem[]>(() => {
     try {
       const saved = localStorage.getItem('dreamwisdom_products');
-      return saved ? JSON.parse(saved) : INITIAL_PRODUCTS;
+      if (saved) {
+        const parsed: ProductItem[] = JSON.parse(saved);
+        return parsed.map((p) => {
+          if (!p.availabilityStatus) {
+            const initialMatch = INITIAL_PRODUCTS.find((init) => init.id === p.id);
+            if (initialMatch?.availabilityStatus) {
+              return { ...p, availabilityStatus: initialMatch.availabilityStatus };
+            }
+            return {
+              ...p,
+              availabilityStatus: p.inStock === false
+                ? '目前已售罄，正安排補貨，敬請稍候；補貨到貨後會通知您。'
+                : '現貨供應',
+            };
+          }
+          return p;
+        });
+      }
+      return INITIAL_PRODUCTS;
     } catch {
       return INITIAL_PRODUCTS;
     }
@@ -67,22 +85,40 @@ export default function App() {
     }
   });
 
+  // Persistent banned records blacklist
+  const [bannedRecords, setBannedRecords] = useState<BannedRecord[]>(() => {
+    try {
+      const saved = localStorage.getItem('dreamwisdom_banned_records');
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+
   // Persistent user state
   const [users, setUsers] = useState<User[]>(() => {
     try {
+      const savedDeleted = localStorage.getItem('dreamwisdom_deleted_user_ids');
+      const deletedIds = new Set<string>(savedDeleted ? JSON.parse(savedDeleted) : []);
+
       const saved = localStorage.getItem('dreamwisdom_users');
       if (saved) {
         const parsed: User[] = JSON.parse(saved);
         const existingIds = new Set(parsed.map((u) => u.id));
-        const merged = [...parsed];
+        const merged: User[] = parsed
+          .filter((u) => !deletedIds.has(u.id))
+          .map((u) => ({
+            ...u,
+            password: u.password || 'Abc123',
+          }));
         for (const initialU of INITIAL_USERS) {
-          if (!existingIds.has(initialU.id)) {
+          if (!existingIds.has(initialU.id) && !deletedIds.has(initialU.id)) {
             merged.push(initialU);
           }
         }
         return merged;
       }
-      return INITIAL_USERS;
+      return INITIAL_USERS.filter((u) => !deletedIds.has(u.id));
     } catch {
       return INITIAL_USERS;
     }
@@ -92,7 +128,11 @@ export default function App() {
     try {
       const saved = localStorage.getItem('dreamwisdom_current_user');
       if (saved) {
-        return JSON.parse(saved);
+        const parsed: User = JSON.parse(saved);
+        return {
+          ...parsed,
+          password: parsed.password || 'Abc123',
+        };
       }
       return INITIAL_USERS[0]; // Default to super_admin (Mystic Blaza)
     } catch {
@@ -329,6 +369,30 @@ export default function App() {
     setUsers((prev) => prev.map((u) => (u.id === currentUser.id ? updatedUser : u)));
   };
 
+  const handleResetPassword = (email: string, newPass: string): boolean => {
+    const targetEmail = email.trim().toLowerCase();
+    const userExists = users.some((u) => u.email.toLowerCase() === targetEmail);
+    if (!userExists) {
+      return false;
+    }
+    const updatedUsers = users.map((u) =>
+      u.email.toLowerCase() === targetEmail ? { ...u, password: newPass } : u
+    );
+    setUsers(updatedUsers);
+    try {
+      localStorage.setItem('dreamwisdom_users', JSON.stringify(updatedUsers));
+    } catch {}
+
+    if (currentUser && currentUser.email.toLowerCase() === targetEmail) {
+      const updatedSelf = { ...currentUser, password: newPass };
+      setCurrentUser(updatedSelf);
+      try {
+        localStorage.setItem('dreamwisdom_current_user', JSON.stringify(updatedSelf));
+      } catch {}
+    }
+    return true;
+  };
+
   // Quota exchange with Star Coins (free users)
   const handleExchangeQuota = (starsCost: number, quotaToAdd: number) => {
     if (!currentUser) {
@@ -439,6 +503,8 @@ export default function App() {
         onOpenLogin={() => setIsLoginOpen(true)}
         onLogout={handleLogout}
         onOpenEarnStars={() => setIsStarVideoOpen(true)}
+        activeSection={activeSection}
+        onNavigateSection={(sec) => handleNavigate('app', sec)}
       />
 
 
@@ -660,6 +726,7 @@ export default function App() {
           setCurrentView('app');
         }}
         availableUsers={users}
+        onResetPassword={handleResetPassword}
       />
 
       {/* Star Video Earning Modal (for General Members) */}

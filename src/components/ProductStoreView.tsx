@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ProductItem, User, PurchaseOrder, normalizeRole } from '../types';
+import React, { useState, useEffect } from 'react';
+import { ProductItem, User, PurchaseOrder, normalizeRole, ProductAvailabilityStatus } from '../types';
 import {
   Sparkles,
   ShoppingBag,
@@ -27,6 +27,27 @@ import {
 import { MemberProductSubmitModal } from './MemberProductSubmitModal';
 import { EditProductModal } from './EditProductModal';
 import { ConfirmDeleteModal } from './ConfirmDeleteModal';
+
+export const getProductStatus = (product: ProductItem): ProductAvailabilityStatus => {
+  if (product.availabilityStatus) return product.availabilityStatus;
+  if (product.inStock === false) return '目前已售罄，正安排補貨，敬請稍候；補貨到貨後會通知您。';
+  return '現貨供應';
+};
+
+export const getStatusButtonLabel = (status: ProductAvailabilityStatus): string => {
+  switch (status) {
+    case '目前已售罄，正安排補貨，敬請稍候；補貨到貨後會通知您。':
+      return '登記補貨通知';
+    case '本活動已圓滿結束':
+      return '本活動已結束';
+    case '等待活動開始':
+      return '提醒我活動開始';
+    case '候補中':
+      return '登記候補名額';
+    default:
+      return '登記通知';
+  }
+};
 
 interface ProductStoreViewProps {
   products: ProductItem[];
@@ -70,11 +91,36 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
   const isAdmin = normRole === 'admin';
   const isAdminOrSuperAdmin = isAdmin || isSuperAdmin;
 
+  const isProductSubmitter = (p: ProductItem | null, user: User | null): boolean => {
+    if (!p || !user) return false;
+    if (p.submittedByUserId && p.submittedByUserId === user.id) return true;
+    if (
+      p.submittedByUserEmail &&
+      user.email &&
+      p.submittedByUserEmail.trim().toLowerCase() === user.email.trim().toLowerCase()
+    ) {
+      return true;
+    }
+    return false;
+  };
+
+  const canUserEditProduct = (p: ProductItem | null, user: User | null): boolean => {
+    if (!p || !user) return false;
+    const role = normalizeRole(user.role);
+    if (role === 'admin' || role === 'super_admin') return true;
+    return isProductSubmitter(p, user);
+  };
+
   const approvedProducts = products.filter((p) => !p.status || p.status === 'approved');
-  const mySubmissions = currentUser ? products.filter((p) => p.submittedByUserId === currentUser.id) : [];
+  const mySubmissions = currentUser ? products.filter((p) => isProductSubmitter(p, currentUser)) : [];
   const pendingAdminProducts = products.filter((p) => p.status === 'pending');
 
   const handleSaveEditedProduct = (updatedProduct: ProductItem) => {
+    if (!canUserEditProduct(updatedProduct, currentUser)) {
+      alert('⚠️ 權限不足：只有管理員、高級管理員及申請上架的會員本人有資格更改！');
+      return;
+    }
+
     const updatedList = products.map((p) => (p.id === updatedProduct.id ? updatedProduct : p));
     if (onUpdateProducts) onUpdateProducts(updatedList);
     try {
@@ -84,13 +130,26 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
     if (activeDetailProduct?.id === updatedProduct.id) {
       setActiveDetailProduct(updatedProduct);
     }
-    setSubmissionFeedback(`✅ 管理員操作成功：已更新選物產品「${updatedProduct.name}」！`);
+    const roleLabel = isSuperAdmin
+      ? '高級管理員'
+      : isAdmin
+      ? '管理員'
+      : isProductSubmitter(updatedProduct, currentUser)
+      ? '申請上架會員'
+      : '權限用戶';
+    setSubmissionFeedback(`✅ ${roleLabel}操作成功：已更新「${updatedProduct.name}」專屬狀態及產品詳情！`);
     setProductToEdit(null);
   };
 
   const handleConfirmDeleteProduct = (productId: string) => {
-    if (!isAdminOrSuperAdmin) return;
     const target = products.find((p) => p.id === productId);
+    if (!target) return;
+    const canDelete = isAdminOrSuperAdmin || isProductSubmitter(target, currentUser);
+    if (!canDelete) {
+      alert('⚠️ 權限不足：只有管理員、高級管理員或申請上架會員本人可刪除此商品！');
+      return;
+    }
+
     const updatedList = products.filter((p) => p.id !== productId);
     if (onUpdateProducts) onUpdateProducts(updatedList);
     try {
@@ -104,8 +163,23 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
       setProductToEdit(null);
     }
     setProductToDelete(null);
-    setSubmissionFeedback(`🗑️ 管理員操作成功：已從選物店永久刪除產品「${target?.name || ''}」！`);
+    setSubmissionFeedback(`🗑️ 操作成功：已從選物店刪除產品「${target?.name || ''}」！`);
   };
+
+  // Keyboard shortcut: ESC to safely close any active modal
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (activeDetailProduct) setActiveDetailProduct(null);
+        if (checkoutProduct) setCheckoutProduct(null);
+        if (showOrderHistory) setShowOrderHistory(false);
+        if (productToEdit) setProductToEdit(null);
+        if (productToDelete) setProductToDelete(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeDetailProduct, checkoutProduct, showOrderHistory, productToEdit, productToDelete]);
 
   // Checkout form state
   const [customerName, setCustomerName] = useState(currentUser?.display_name || '');
@@ -206,6 +280,20 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
       localStorage.setItem('dreamwisdom_products', JSON.stringify(updated));
     } catch {}
     setSubmissionFeedback(`❌ 已退回產品「${target?.name || ''}」的上架申請。`);
+  };
+
+  const handleNonStockAction = (product: ProductItem, status: ProductAvailabilityStatus) => {
+    if (status === '本活動已圓滿結束') {
+      alert(`【${product.name}】\n本活動已圓滿結束，感謝關注！請留意日後全新專題選物活動。`);
+      return;
+    }
+    const emailNotice = currentUser?.email
+      ? `已登記您的會員信箱：${currentUser.email}`
+      : '已記錄您的登記意向';
+    alert(
+      `【${product.name}】\n已成功登記狀態提醒：${status}\n${emailNotice}。到貨或開放時將優先為您發送通知！`
+    );
+    setSubmissionFeedback(`📋 已為您登記「${product.name}」狀態通知（${status}）！`);
   };
 
   const handleStartCheckout = (product: ProductItem) => {
@@ -558,18 +646,43 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
         </button>
       </div>
 
+      {/* Status Legend Bar */}
+      <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-2.5 rounded-2xl bg-white/[0.02] border border-white/5 text-xs">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-bold text-[#8d97b5]">供應狀態說明：</span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/35 text-[11px] font-bold">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+            現貨供應 (亮色·即刻下單)
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/5 text-white/50 border border-white/10 text-[11px]">
+            <span className="w-1.5 h-1.5 rounded-full bg-white/30 shrink-0" />
+            淺色識別：已售罄補貨中 / 活動結束 / 等待活動 / 候補中 (可登記優先通知)
+          </span>
+        </div>
+        <div className="text-[11px] text-[#8d97b5]">
+          現貨商品 {approvedProducts.filter((p) => getProductStatus(p) === '現貨供應').length} 件 · 
+          其他狀態 {approvedProducts.filter((p) => getProductStatus(p) !== '現貨供應').length} 件
+        </div>
+      </div>
+
       {/* Products Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {filteredProducts.map((product) => {
           const isRecommended = recommendedProductId === product.id;
+          const status = getProductStatus(product);
+          const isAvailable = status === '現貨供應';
 
           return (
             <div
               key={product.id}
-              className={`rounded-2xl bg-white/[0.03] border transition-all flex flex-col justify-between overflow-hidden group hover:border-emerald-500/40 hover:bg-white/[0.05] ${
+              className={`rounded-2xl transition-all flex flex-col justify-between overflow-hidden group ${
+                isAvailable
+                  ? 'bg-white/[0.03] border border-white/10 hover:border-emerald-500/40 hover:bg-white/[0.05]'
+                  : 'bg-white/[0.012] border border-white/5 opacity-70 hover:opacity-85'
+              } ${
                 isRecommended
                   ? 'border-emerald-500/70 shadow-lg shadow-emerald-950/50 relative'
-                  : 'border-white/10'
+                  : ''
               }`}
             >
               {/* Product Image & Badges */}
@@ -578,26 +691,45 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
                   src={product.imageUrl}
                   alt={product.name}
                   referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                  className={`w-full h-full object-cover group-hover:scale-105 transition-transform duration-500 ${
+                    isAvailable ? '' : 'opacity-80 grayscale-[20%]'
+                  }`}
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-black/30" />
 
                 {/* Top Badges */}
-                <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-1">
-                  {product.badge && (
-                    <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-500 text-black shadow-md">
-                      {product.badge}
+                <div className="absolute top-3 left-3 right-3 flex items-center justify-between gap-1 flex-wrap">
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    {/* Status Badge on Image */}
+                    {isAvailable ? (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500 text-black shadow-md flex items-center gap-1">
+                        <span className="w-1.5 h-1.5 rounded-full bg-black animate-pulse" />
+                        現貨供應
+                      </span>
+                    ) : (
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-black/70 text-white/50 border border-white/10 backdrop-blur-sm truncate max-w-[130px]">
+                        {status}
+                      </span>
+                    )}
+
+                    {product.badge && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 shadow-md">
+                        {product.badge}
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-1 ml-auto">
+                    {isRecommended && (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-400 text-black shadow-md flex items-center gap-1">
+                        <Sparkles className="w-3 h-3" />
+                        解夢推薦
+                      </span>
+                    )}
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-black/60 text-white/80 backdrop-blur-sm">
+                      {product.volumeOrSpec}
                     </span>
-                  )}
-                  {isRecommended && (
-                    <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-amber-400 text-black shadow-md flex items-center gap-1">
-                      <Sparkles className="w-3 h-3" />
-                      你的解夢專屬推薦
-                    </span>
-                  )}
-                  <span className="text-[10px] px-2 py-0.5 rounded-full bg-black/60 text-white/80 backdrop-blur-sm ml-auto">
-                    {product.volumeOrSpec}
-                  </span>
+                  </div>
                 </div>
 
                 {/* Scent notes pill if applicable */}
@@ -615,23 +747,48 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
                 <div className="space-y-1.5">
                   <div className="flex items-center justify-between text-[11px] text-[#8d97b5]">
                     <span>{product.brand}</span>
-                    <span className="text-emerald-400">{product.categoryLabel}</span>
+                    <span className={isAvailable ? 'text-emerald-400' : 'text-[#8d97b5]'}>{product.categoryLabel}</span>
                   </div>
 
-                  <h3 className="text-base font-bold text-white group-hover:text-emerald-300 transition-colors">
+                  <h3 className={`text-base font-bold transition-colors ${
+                    isAvailable ? 'text-white group-hover:text-emerald-300' : 'text-white/65 group-hover:text-white/85'
+                  }`}>
                     {product.name}
                   </h3>
-                  <p className="text-xs text-[#aab3d2] line-clamp-2 leading-relaxed">
+                  <p className={`text-xs line-clamp-2 leading-relaxed ${
+                    isAvailable ? 'text-[#aab3d2]' : 'text-[#8d97b5]/70'
+                  }`}>
                     {product.subTitle}
                   </p>
+
+                  {/* Dedicated Availability Status Display Area */}
+                  <div className="pt-1.5 pb-0.5">
+                    {isAvailable ? (
+                      <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/35 text-emerald-300 text-xs font-bold shadow-sm">
+                        <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                        <span>現貨供應</span>
+                      </div>
+                    ) : (
+                      <div className="inline-flex items-start gap-1.5 px-3 py-1.5 rounded-xl bg-white/[0.03] border border-white/10 text-white/50 text-[11px] font-normal leading-snug">
+                        <span className="w-1.5 h-1.5 rounded-full bg-white/30 shrink-0 mt-1" />
+                        <span className="line-clamp-2">{status}</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* Why recommended for dreams */}
-                <div className="p-3 rounded-xl bg-emerald-950/30 border border-emerald-500/20 text-xs text-[#cbd2ef] space-y-1">
-                  <span className="text-emerald-300 font-medium text-[11px] flex items-center gap-1">
+                <div className={`p-3 rounded-xl border text-xs space-y-1 ${
+                  isAvailable
+                    ? 'bg-emerald-950/30 border-emerald-500/20 text-[#cbd2ef]'
+                    : 'bg-white/[0.02] border-white/5 text-[#8d97b5]'
+                }`}>
+                  <span className={`font-medium text-[11px] flex items-center gap-1 ${
+                    isAvailable ? 'text-emerald-300' : 'text-[#8d97b5]'
+                  }`}>
                     <Sparkles className="w-3 h-3" /> 解夢對應功效：
                   </span>
-                  <p className="text-[11px] text-[#cbd2ef] line-clamp-2 leading-relaxed">
+                  <p className="text-[11px] line-clamp-2 leading-relaxed">
                     {product.recommendationReason}
                   </p>
                 </div>
@@ -640,7 +797,7 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
                 <div className="pt-3 border-t border-white/10 flex items-center justify-between gap-2">
                   <div>
                     <div className="flex items-baseline gap-1.5">
-                      <span className="text-lg font-black text-white">
+                      <span className={`text-lg font-black ${isAvailable ? 'text-white' : 'text-white/60'}`}>
                         HK${product.priceHKD}
                       </span>
                       {product.originalPriceHKD && (
@@ -650,7 +807,7 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
                       )}
                     </div>
                     {product.starsRedeemCost && (
-                      <span className="text-[10px] text-amber-300 font-mono block">
+                      <span className={`text-[10px] font-mono block ${isAvailable ? 'text-amber-300' : 'text-amber-300/50'}`}>
                         可扣減 {product.starsRedeemCost} 粒星折抵 $20
                       </span>
                     )}
@@ -660,27 +817,51 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
                     <button
                       type="button"
                       onClick={() => setActiveDetailProduct(product)}
-                      className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-white transition-all cursor-pointer"
+                      className="px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-xs text-white/80 hover:text-white transition-all cursor-pointer"
                     >
                       詳情
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => handleStartCheckout(product)}
-                      className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
-                    >
-                      <ShoppingBag className="w-3.5 h-3.5" />
-                      立即選購
-                    </button>
+                    {isAvailable ? (
+                      <button
+                        type="button"
+                        onClick={() => handleStartCheckout(product)}
+                        className="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-bold text-xs flex items-center gap-1.5 shadow-md shadow-emerald-500/20 transition-all cursor-pointer"
+                      >
+                        <ShoppingBag className="w-3.5 h-3.5" />
+                        立即選購
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => handleNonStockAction(product, status)}
+                        className="px-3.5 py-2 rounded-xl bg-white/10 hover:bg-white/15 text-white/60 hover:text-white/85 font-medium text-xs flex items-center gap-1.5 border border-white/10 transition-all cursor-pointer"
+                      >
+                        <span>{getStatusButtonLabel(status)}</span>
+                      </button>
+                    )}
                   </div>
                 </div>
 
-                {/* Admin & Senior Admin Quick Edit / Delete Toolbar */}
-                {isAdminOrSuperAdmin && (
+                {/* Admin, Senior Admin & Submitter Quick Edit / Delete Toolbar */}
+                {canUserEditProduct(product, currentUser) && (
                   <div className="pt-2.5 mt-2.5 border-t border-white/10 flex items-center justify-between text-[11px] bg-white/[0.03] -mx-5 -mb-5 px-5 py-2.5 rounded-b-2xl">
-                    <span className="text-emerald-400 font-bold flex items-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5" />
-                      <span>{isSuperAdmin ? '高級管理員' : '管理員'}操作</span>
+                    <span className="font-bold flex items-center gap-1">
+                      {isSuperAdmin ? (
+                        <span className="text-amber-300 flex items-center gap-1">
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                          <span>👑 高級管理員</span>
+                        </span>
+                      ) : isAdmin ? (
+                        <span className="text-emerald-400 flex items-center gap-1">
+                          <ShieldCheck className="w-3.5 h-3.5" />
+                          <span>🛡️ 管理員</span>
+                        </span>
+                      ) : (
+                        <span className="text-purple-300 flex items-center gap-1">
+                          <Sparkles className="w-3.5 h-3.5" />
+                          <span>✨ 上架會員本人</span>
+                        </span>
+                      )}
                     </span>
                     <div className="flex items-center gap-1.5">
                       <button
@@ -690,23 +871,25 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
                           setProductToEdit(product);
                         }}
                         className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-emerald-500/20 text-white hover:text-emerald-300 flex items-center gap-1 font-medium cursor-pointer transition-all border border-white/10 text-xs"
-                        title="隨時更改此商品資料"
+                        title="更改此商品的專屬狀態及詳細資料"
                       >
                         <Edit3 className="w-3 h-3 text-emerald-400" />
-                        <span>更改</span>
+                        <span>更改詳情與狀態</span>
                       </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setProductToDelete(product);
-                        }}
-                        className="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 flex items-center gap-1 font-medium cursor-pointer transition-all border border-red-500/20 text-xs"
-                        title="隨時刪除此商品"
-                      >
-                        <Trash2 className="w-3 h-3" />
-                        <span>刪除</span>
-                      </button>
+                      {(isAdminOrSuperAdmin || isProductSubmitter(product, currentUser)) && (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setProductToDelete(product);
+                          }}
+                          className="px-2.5 py-1 rounded-lg bg-red-500/10 hover:bg-red-500/20 text-red-300 flex items-center gap-1 font-medium cursor-pointer transition-all border border-red-500/20 text-xs"
+                          title="刪除此商品"
+                        >
+                          <Trash2 className="w-3 h-3" />
+                          <span>刪除</span>
+                        </button>
+                      )}
                     </div>
                   </div>
                 )}
@@ -868,20 +1051,22 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
                     </div>
 
                     {/* Admin or Submitter Action Controls */}
-                    {(isAdminOrSuperAdmin || (currentUser && p.submittedByUserId === currentUser.id)) && (
+                    {canUserEditProduct(p, currentUser) && (
                       <div className="pt-2.5 flex items-center justify-between border-t border-white/10 text-xs">
                         <span className="text-[11px] text-[#8d97b5]">
-                          {isAdminOrSuperAdmin ? '管理員可隨時更改或移除此產品' : '您可隨時更改或撤回此申請'}
+                          {isAdminOrSuperAdmin
+                            ? '管理員具備隨時更改或移除此產品之權限'
+                            : '身為申請上架會員，您有資格隨時更改專屬狀態與產品詳情'}
                         </span>
                         <div className="flex items-center gap-1.5">
                           <button
                             type="button"
                             onClick={() => setProductToEdit(p)}
                             className="px-2.5 py-1 rounded-lg bg-white/10 hover:bg-emerald-500/20 text-white hover:text-emerald-300 text-xs flex items-center gap-1 cursor-pointer border border-white/10 transition-all"
-                            title="更改產品資料"
+                            title="更改專屬狀態及產品詳情"
                           >
                             <Edit3 className="w-3 h-3 text-emerald-400" />
-                            <span>更改資料</span>
+                            <span>更改狀態與詳情</span>
                           </button>
                           <button
                             type="button"
@@ -890,7 +1075,7 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
                             title="刪除此商品"
                           >
                             <Trash2 className="w-3 h-3" />
-                            <span>刪除</span>
+                            <span>{isAdminOrSuperAdmin ? '刪除' : '撤回 / 刪除'}</span>
                           </button>
                         </div>
                       </div>
@@ -1060,14 +1245,26 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
 
       {/* Product Detail Modal */}
       {activeDetailProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-2xl bg-[#0f1422] border border-white/20 rounded-3xl p-6 sm:p-8 space-y-5 my-8 relative">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md overflow-y-auto cursor-pointer"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setActiveDetailProduct(null);
+          }}
+        >
+          <div
+            className="w-full max-w-2xl bg-[#0f1422] border border-white/20 rounded-3xl p-5 sm:p-8 space-y-5 my-8 relative cursor-default shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Highly visible top-right close button */}
             <button
               type="button"
               onClick={() => setActiveDetailProduct(null)}
-              className="absolute top-5 right-5 p-2 rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white"
+              className="absolute top-4 right-4 sm:top-5 sm:right-5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center gap-1.5 text-xs font-bold transition-all z-30 cursor-pointer shadow-lg border border-white/20"
+              aria-label="關閉"
+              title="關閉返回選物店 (ESC)"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4 text-emerald-400" />
+              <span>關閉</span>
             </button>
 
             <div className="flex flex-col sm:flex-row gap-6">
@@ -1110,21 +1307,59 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
                   <div><b>保質期：</b>{activeDetailProduct.shelfLife}</div>
                 </div>
 
-                <button
-                  type="button"
-                  onClick={() => {
-                    const prod = activeDetailProduct;
-                    setActiveDetailProduct(null);
-                    handleStartCheckout(prod);
-                  }}
-                  className="w-full py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 transition-all mt-2"
-                >
-                  <ShoppingBag className="w-4 h-4" />
-                  以 HK${activeDetailProduct.priceHKD} 選購
-                </button>
+                {/* Dedicated Availability Status in Modal */}
+                {(() => {
+                  const modalStatus = getProductStatus(activeDetailProduct);
+                  const isModalAvailable = modalStatus === '現貨供應';
 
-                {/* Admin & Senior Admin Management Controls */}
-                {isAdminOrSuperAdmin && (
+                  return (
+                    <div className="space-y-3 pt-1">
+                      <div>
+                        {isModalAvailable ? (
+                          <div className="flex items-center gap-2 px-3.5 py-2.5 rounded-2xl bg-emerald-500/15 border border-emerald-500/35 text-emerald-300 text-xs font-bold shadow-sm">
+                            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+                            <span>【現貨供應】確認訂單後 24 小時內安排順豐速運寄出</span>
+                          </div>
+                        ) : (
+                          <div className="flex items-start gap-2.5 px-3.5 py-2.5 rounded-2xl bg-white/[0.04] border border-white/10 text-white/50 text-xs font-normal">
+                            <span className="w-1.5 h-1.5 rounded-full bg-white/30 shrink-0 mt-1" />
+                            <span className="leading-relaxed">【狀態標示】{modalStatus}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      {isModalAvailable ? (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const prod = activeDetailProduct;
+                            setActiveDetailProduct(null);
+                            handleStartCheckout(prod);
+                          }}
+                          className="w-full py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 transition-all cursor-pointer"
+                        >
+                          <ShoppingBag className="w-4 h-4" />
+                          以 HK${activeDetailProduct.priceHKD} 選購
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const prod = activeDetailProduct;
+                            setActiveDetailProduct(null);
+                            handleNonStockAction(prod, modalStatus);
+                          }}
+                          className="w-full py-3 rounded-2xl bg-white/10 hover:bg-white/15 text-white/65 hover:text-white font-medium text-sm flex items-center justify-center gap-2 border border-white/15 transition-all cursor-pointer"
+                        >
+                          <span>{getStatusButtonLabel(modalStatus)}</span>
+                        </button>
+                      )}
+                    </div>
+                  );
+                })()}
+
+                {/* Admin, Senior Admin & Submitter Management Controls */}
+                {canUserEditProduct(activeDetailProduct, currentUser) && (
                   <div className="pt-2 mt-1 border-t border-white/10 flex items-center gap-2">
                     <button
                       type="button"
@@ -1135,19 +1370,21 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
                       className="flex-1 py-2 px-3 rounded-xl bg-white/10 hover:bg-emerald-500/20 text-white hover:text-emerald-300 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer border border-white/15 transition-all"
                     >
                       <Edit3 className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>更改此產品</span>
+                      <span>更改專屬狀態及產品詳情</span>
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const prod = activeDetailProduct;
-                        setProductToDelete(prod);
-                      }}
-                      className="py-2 px-3 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      <span>刪除商品</span>
-                    </button>
+                    {(isAdminOrSuperAdmin || isProductSubmitter(activeDetailProduct, currentUser)) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const prod = activeDetailProduct;
+                          setProductToDelete(prod);
+                        }}
+                        className="py-2 px-3 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>刪除商品</span>
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -1223,20 +1460,47 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* Modal Bottom Action Bar */}
+            <div className="pt-4 border-t border-white/10 flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                onClick={() => setActiveDetailProduct(null)}
+                className="px-5 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 active:scale-95 text-white text-xs font-bold flex items-center gap-2 transition-all cursor-pointer border border-white/15"
+              >
+                <X className="w-4 h-4 text-emerald-400" />
+                <span>返回選物店</span>
+              </button>
+
+              <div className="text-[11px] text-[#8d97b5]">
+                按鍵盤 <kbd className="px-1.5 py-0.5 rounded bg-white/10 text-white font-mono text-[10px]">ESC</kbd> 或點擊空白處亦可退出
+              </div>
+            </div>
           </div>
         </div>
       )}
 
       {/* Checkout Modal */}
       {checkoutProduct && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
-          <div className="w-full max-w-lg bg-[#0f1422] border border-emerald-500/30 rounded-3xl p-6 sm:p-8 space-y-5 my-8 relative">
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6 bg-black/85 backdrop-blur-md overflow-y-auto cursor-pointer"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setCheckoutProduct(null);
+          }}
+        >
+          <div
+            className="w-full max-w-lg bg-[#0f1422] border border-emerald-500/30 rounded-3xl p-5 sm:p-8 space-y-5 my-8 relative cursor-default shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               type="button"
               onClick={() => setCheckoutProduct(null)}
-              className="absolute top-5 right-5 p-2 rounded-full bg-white/5 hover:bg-white/10 text-white/70 hover:text-white"
+              className="absolute top-4 right-4 sm:top-5 sm:right-5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center gap-1.5 text-xs font-bold transition-all z-30 cursor-pointer shadow-lg border border-white/15"
+              aria-label="關閉"
+              title="關閉 (ESC)"
             >
-              <X className="w-5 h-5" />
+              <X className="w-4 h-4 text-emerald-400" />
+              <span>關閉</span>
             </button>
 
             {!orderSuccess ? (
@@ -1423,13 +1687,22 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
                   </div>
                 </div>
 
-                <button
-                  type="submit"
-                  className="w-full py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 transition-all cursor-pointer"
-                >
-                  <Check className="w-4 h-4" />
-                  確認送出訂單
-                </button>
+                <div className="flex items-center gap-2.5 pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setCheckoutProduct(null)}
+                    className="px-4 py-3 rounded-2xl bg-white/10 hover:bg-white/15 text-white text-xs font-bold transition-all cursor-pointer border border-white/15 active:scale-95"
+                  >
+                    取消
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-black font-extrabold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 transition-all cursor-pointer active:scale-95"
+                  >
+                    <Check className="w-4 h-4" />
+                    確認送出訂單
+                  </button>
+                </div>
               </form>
             ) : (
               /* Order Success Screen */
@@ -1485,14 +1758,25 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
 
       {/* Order History Modal */}
       {showOrderHistory && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 z-50 animate-fade-in">
-          <div className="bg-[#0b0f1e] border border-white/20 rounded-3xl p-6 max-w-xl w-full max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl relative">
+        <div
+          className="fixed inset-0 bg-black/85 backdrop-blur-md flex items-center justify-center p-3 sm:p-4 z-50 animate-fade-in cursor-pointer"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) setShowOrderHistory(false);
+          }}
+        >
+          <div
+            className="bg-[#0b0f1e] border border-white/20 rounded-3xl p-6 max-w-xl w-full max-h-[85vh] overflow-y-auto space-y-4 shadow-2xl relative cursor-default"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
               type="button"
               onClick={() => setShowOrderHistory(false)}
-              className="absolute top-4 right-4 p-2 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors cursor-pointer"
+              className="absolute top-4 right-4 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 active:scale-95 text-white flex items-center gap-1.5 text-xs font-bold transition-colors cursor-pointer border border-white/15 z-30"
+              aria-label="關閉"
+              title="關閉 (ESC)"
             >
-              <X className="w-4 h-4" />
+              <X className="w-4 h-4 text-emerald-400" />
+              <span>關閉</span>
             </button>
 
             <div className="flex items-center gap-2">
@@ -1592,8 +1876,8 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
         />
       )}
 
-      {/* Edit Product Modal for Admin & Senior Admin */}
-      {isAdminOrSuperAdmin && (
+      {/* Edit Product Modal for Admin, Senior Admin & Submitter Member */}
+      {productToEdit && (
         <EditProductModal
           isOpen={!!productToEdit}
           onClose={() => setProductToEdit(null)}
@@ -1606,6 +1890,8 @@ export const ProductStoreView: React.FC<ProductStoreViewProps> = ({
             }
           }}
           isSuperAdmin={isSuperAdmin}
+          isAdmin={isAdmin}
+          currentUser={currentUser}
         />
       )}
 

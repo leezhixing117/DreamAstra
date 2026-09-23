@@ -51,6 +51,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
     imageUrl: 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&w=800&q=80',
     badge: '👑 人氣熱賣 · 解夢推薦',
     inStock: true,
+    availabilityStatus: '現貨供應',
   },
   {
     id: 'prod_lavender_pillow_mist',
@@ -87,7 +88,8 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
     cautions: ['避免直接對眼睛噴灑，孕婦及蠶豆症患者請先諮詢醫生。'],
     imageUrl: 'https://images.unsplash.com/photo-1595867818082-083862f3d630?auto=format&fit=crop&w=800&q=80',
     badge: '🌙 安睡之選',
-    inStock: true,
+    inStock: false,
+    availabilityStatus: '目前已售罄，正安排補貨，敬請稍候；補貨到貨後會通知您。',
   },
   {
     id: 'prod_sage_cleansing_bundle',
@@ -120,6 +122,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
     imageUrl: 'https://images.unsplash.com/photo-1602928321679-560bb453f190?auto=format&fit=crop&w=800&q=80',
     badge: '🌿 純天然草本',
     inStock: true,
+    availabilityStatus: '現貨供應',
   },
   {
     id: 'prod_amethyst_cluster',
@@ -151,7 +154,8 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
     cautions: ['天然原礦邊緣微尖，避免摔落磕碰。'],
     imageUrl: 'https://images.unsplash.com/photo-1598880940371-c756e015fea1?auto=format&fit=crop&w=800&q=80',
     badge: '💎 療癒原石',
-    inStock: true,
+    inStock: false,
+    availabilityStatus: '等待活動開始',
   },
   {
     id: 'prod_herbal_sleep_tea',
@@ -188,7 +192,8 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
     cautions: ['孕婦、哺乳期婦女或服用鎮靜類藥物者飲用前請先諮詢醫師。'],
     imageUrl: 'https://images.unsplash.com/photo-1597481499750-3e6b22637e12?auto=format&fit=crop&w=800&q=80',
     badge: '☕ 溫暖深眠',
-    inStock: true,
+    inStock: false,
+    availabilityStatus: '候補中',
   },
   {
     id: 'prod_palo_santo_sticks',
@@ -220,6 +225,7 @@ export const INITIAL_PRODUCTS: ProductItem[] = [
     cautions: ['使用時請保持適當通風，遠離易燃物品，確保完全熄滅。'],
     imageUrl: 'https://images.unsplash.com/photo-1608571423902-eed4a5ad8108?auto=format&fit=crop&w=800&q=80',
     badge: '🔥 空間淨化',
-    inStock: true,
+    inStock: false,
+    availabilityStatus: '本活動已圓滿結束',
   },
 ];

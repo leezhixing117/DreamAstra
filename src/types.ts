@@ -26,10 +26,21 @@ export interface User {
   email: string;
   display_name?: string;
   role: UserRole;
+  password?: string; // 預設密碼 Abc123，可經 Email 重設
   stars?: number; // 一般會員透過隨機彈出片儲備之星星數
   storage_quota?: number; // 免費預設 3 條，星星幣可兌換至上限 10 條，付費版為無限
   privacy_local_only?: boolean; // 本地模式概念：數據只留存瀏覽器 LocalStorage
   created_at?: string;
+  is_banned?: boolean; // 高級管理員封禁停權標記
+  banned_at?: string; // 封禁時間
+  banned_reason?: string; // 封禁原因
+}
+
+export interface BannedRecord {
+  email: string;
+  reason?: string;
+  banned_at: string;
+  banned_by?: string;
 }
 
 export interface DreamSymbol {
@@ -227,6 +238,13 @@ export interface BookBrainItem {
 
 export type ProductStatus = 'approved' | 'pending' | 'rejected';
 
+export type ProductAvailabilityStatus =
+  | '現貨供應'
+  | '目前已售罄，正安排補貨，敬請稍候；補貨到貨後會通知您。'
+  | '本活動已圓滿結束'
+  | '等待活動開始'
+  | '候補中';
+
 export interface ProductItem {
   id: string;
   name: string;
@@ -254,6 +272,7 @@ export interface ProductItem {
   imageUrl: string;
   badge?: string;
   inStock: boolean;
+  availabilityStatus?: ProductAvailabilityStatus;
   status?: ProductStatus; // 審批狀態：'approved' (公開) | 'pending' (待高級管理員審批) | 'rejected' (已退回)
   submittedByUserId?: string;
   submittedByUserName?: string;

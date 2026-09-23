@@ -12,7 +12,7 @@ import {
   Layers,
   AlertTriangle,
 } from 'lucide-react';
-import { ProductItem, ProductStatus } from '../types';
+import { ProductItem, ProductStatus, ProductAvailabilityStatus, User, normalizeRole } from '../types';
 
 interface EditProductModalProps {
   isOpen: boolean;
@@ -21,6 +21,8 @@ interface EditProductModalProps {
   onSaveProduct: (updated: ProductItem) => void;
   onDeleteProduct?: (productId: string) => void;
   isSuperAdmin: boolean;
+  isAdmin?: boolean;
+  currentUser?: User | null;
 }
 
 const PRESET_IMAGES = [
@@ -57,11 +59,29 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
   onSaveProduct,
   onDeleteProduct,
   isSuperAdmin,
+  isAdmin,
+  currentUser,
 }) => {
   const [formData, setFormData] = useState<Partial<ProductItem>>({});
   const [ingredientsInput, setIngredientsInput] = useState('');
   const [benefitsInput, setBenefitsInput] = useState('');
   const [suitableDreamsInput, setSuitableDreamsInput] = useState('');
+
+  const normRole = normalizeRole(currentUser?.role);
+  const actualIsSuperAdmin = isSuperAdmin || normRole === 'super_admin';
+  const actualIsAdmin = Boolean(isAdmin || normRole === 'admin');
+  const isAdminOrSuperAdmin = actualIsSuperAdmin || actualIsAdmin;
+
+  const isSubmitter = Boolean(
+    currentUser &&
+      product &&
+      ((product.submittedByUserId && product.submittedByUserId === currentUser.id) ||
+        (product.submittedByUserEmail &&
+          currentUser.email &&
+          product.submittedByUserEmail.trim().toLowerCase() === currentUser.email.trim().toLowerCase()))
+  );
+
+  const hasEditPermission = isAdminOrSuperAdmin || isSubmitter;
 
   useEffect(() => {
     if (product) {
@@ -78,6 +98,29 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
   }, [product]);
 
   if (!isOpen || !product) return null;
+
+  if (!hasEditPermission) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/85 backdrop-blur-md">
+        <div className="w-full max-w-md bg-[#0f1422] border border-red-500/40 rounded-3xl p-6 sm:p-7 space-y-4 shadow-2xl relative text-center">
+          <div className="w-12 h-12 rounded-2xl bg-red-500/20 border border-red-500/30 flex items-center justify-center mx-auto text-red-400">
+            <AlertTriangle className="w-6 h-6" />
+          </div>
+          <h3 className="text-lg font-bold text-white">權限不足</h3>
+          <p className="text-xs text-[#cbd2ef] leading-relaxed">
+            只有<b>平台管理員</b>、<b>高級管理員</b>，或<b>申請此商品上架的會員本人</b>有資格更改專屬狀態及產品詳情。
+          </p>
+          <button
+            type="button"
+            onClick={onClose}
+            className="w-full py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-bold text-xs transition-all cursor-pointer"
+          >
+            返回選物店
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -118,8 +161,9 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
       shelfLife: formData.shelfLife?.trim() || product.shelfLife || '2 年',
       imageUrl: formData.imageUrl?.trim() || product.imageUrl,
       badge: formData.badge?.trim() || undefined,
-      inStock: formData.inStock ?? true,
-      status: (formData.status || 'approved') as ProductStatus,
+      availabilityStatus: (formData.availabilityStatus || (formData.inStock === false ? '目前已售罄，正安排補貨，敬請稍候；補貨到貨後會通知您。' : '現貨供應')) as ProductAvailabilityStatus,
+      inStock: formData.availabilityStatus ? formData.availabilityStatus === '現貨供應' : (formData.inStock ?? true),
+      status: (isAdminOrSuperAdmin ? (formData.status || 'approved') : (product.status || 'approved')) as ProductStatus,
       ingredients: parseList(ingredientsInput, product.ingredients || ['天然草本提取物']),
       keyBenefits: parseList(benefitsInput, product.keyBenefits || ['身心舒緩放鬆']),
       suitableDreams: parseList(suitableDreamsInput, product.suitableDreams || ['噩夢', '心神不寧']),
@@ -143,23 +187,32 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
         {/* Header */}
         <div className="flex items-start justify-between gap-4 pb-4 border-b border-white/10">
           <div>
-            <div className="flex items-center gap-2">
-              <span className="badge bg-emerald-500/20 text-emerald-300 border-emerald-500/40">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                ADMIN PRODUCT MANAGEMENT · 管理員權限
-              </span>
+            <div className="flex items-center gap-2 flex-wrap">
+              {actualIsSuperAdmin ? (
+                <span className="badge bg-amber-500/20 text-amber-300 border-amber-500/40 text-xs font-bold">
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+                  👑 高級管理員（Super Admin）修改資格
+                </span>
+              ) : actualIsAdmin ? (
+                <span className="badge bg-emerald-500/20 text-emerald-300 border-emerald-500/40 text-xs font-bold">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  🛡️ 平台管理員（Admin）修改資格
+                </span>
+              ) : (
+                <span className="badge bg-purple-500/20 text-purple-300 border-purple-500/40 text-xs font-bold">
+                  <Sparkles className="w-3.5 h-3.5 text-purple-400" />
+                  ✨ 申請上架會員（原創作者）修改資格
+                </span>
+              )}
               <span className="text-xs text-[#aab3d2]">
-                產品代號：<strong className="text-white font-mono">{product.id}</strong>
+                產品編號：<strong className="text-white font-mono">{product.id}</strong>
               </span>
             </div>
             <h2 className="text-xl font-black text-white mt-1.5 flex items-center gap-2">
-              <span>編輯與更改選物店產品</span>
-              <span className="text-xs font-normal text-emerald-400 px-2 py-0.5 rounded-full bg-emerald-500/10 border border-emerald-500/20">
-                可隨時更新或刪除
-              </span>
+              <span>編輯專屬狀態及產品詳情</span>
             </h2>
             <p className="text-xs text-[#aab3d2] mt-0.5">
-              管理員及高級管理員具備隨時修改產品名稱、價格、規格、分類、上架審批狀態或移除商品之權限。
+              只有管理員、高級管理員及申請上架的會員本人有資格更改專屬狀態及產品詳情。
             </p>
           </div>
 
@@ -319,60 +372,105 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <label className="block text-xs font-bold text-white">
-                  產品上架狀態 (Product Status)
+                  產品上架審批狀態 (Product Status)
                 </label>
                 <p className="text-[11px] text-[#8d97b5]">
-                  管理員及高級管理員可隨時調整此商品是公開展示、處於審批或是退回。
+                  {isAdminOrSuperAdmin
+                    ? '管理員及高級管理員具備隨時調整此商品公開展示、待審批或退回之權限。'
+                    : '審批由管理員維護；身為申請上架會員，您具備隨時更改下方專屬供應狀態及所有產品詳情之資格。'}
                 </p>
               </div>
 
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, status: 'approved' })}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all ${
-                    formData.status === 'approved' || !formData.status
-                      ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
-                      : 'bg-white/5 text-[#cbd2ef] hover:bg-white/10 border border-white/10'
-                  }`}
-                >
-                  ✅ 公開上架 (approved)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, status: 'pending' })}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all ${
-                    formData.status === 'pending'
-                      ? 'bg-amber-400 text-black shadow-md shadow-amber-400/20'
-                      : 'bg-white/5 text-[#cbd2ef] hover:bg-white/10 border border-white/10'
-                  }`}
-                >
-                  ⏳ 待審批 (pending)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFormData({ ...formData, status: 'rejected' })}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all ${
-                    formData.status === 'rejected'
-                      ? 'bg-red-500 text-white shadow-md shadow-red-500/20'
-                      : 'bg-white/5 text-[#cbd2ef] hover:bg-white/10 border border-white/10'
-                  }`}
-                >
-                  ❌ 已退回 (rejected)
-                </button>
-              </div>
+              {isAdminOrSuperAdmin ? (
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, status: 'approved' })}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all ${
+                      formData.status === 'approved' || !formData.status
+                        ? 'bg-emerald-500 text-black shadow-md shadow-emerald-500/20'
+                        : 'bg-white/5 text-[#cbd2ef] hover:bg-white/10 border border-white/10'
+                    }`}
+                  >
+                    ✅ 公開上架 (approved)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, status: 'pending' })}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all ${
+                      formData.status === 'pending'
+                        ? 'bg-amber-400 text-black shadow-md shadow-amber-400/20'
+                        : 'bg-white/5 text-[#cbd2ef] hover:bg-white/10 border border-white/10'
+                    }`}
+                  >
+                    ⏳ 待審批 (pending)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setFormData({ ...formData, status: 'rejected' })}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold cursor-pointer transition-all ${
+                      formData.status === 'rejected'
+                        ? 'bg-red-500 text-white shadow-md shadow-red-500/20'
+                        : 'bg-white/5 text-[#cbd2ef] hover:bg-white/10 border border-white/10'
+                    }`}
+                  >
+                    ❌ 已退回 (rejected)
+                  </button>
+                </div>
+              ) : (
+                <div className="px-3.5 py-1.5 rounded-xl bg-white/5 border border-white/10 text-xs text-[#cbd2ef] flex items-center gap-1.5">
+                  <span>目前平台審批：</span>
+                  <span className="font-bold text-emerald-400">
+                    {formData.status === 'pending' ? '⏳ 待管理員審批' : formData.status === 'rejected' ? '❌ 已退回' : '✅ 已核准公開'}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* Availability / Activity Status */}
+            <div className="space-y-1.5 pt-2 border-t border-white/5">
+              <label className="block text-xs font-bold text-[#cbd2ef]">
+                供應與活動狀態 (Status) · 管理員 / 高級管理員 / 上架會員皆可更改
+              </label>
+              <select
+                value={
+                  formData.availabilityStatus ||
+                  (formData.inStock === false
+                    ? '目前已售罄，正安排補貨，敬請稍候；補貨到貨後會通知您。'
+                    : '現貨供應')
+                }
+                onChange={(e) => {
+                  const val = e.target.value as ProductAvailabilityStatus;
+                  setFormData({
+                    ...formData,
+                    availabilityStatus: val,
+                    inStock: val === '現貨供應',
+                  });
+                }}
+                className="w-full px-3.5 py-2.5 rounded-xl bg-[#141b2d] border border-white/15 text-white text-xs focus:border-emerald-400 focus:outline-none"
+              >
+                <option value="現貨供應">🟢 現貨供應 (全彩亮色 · 正常下單)</option>
+                <option value="目前已售罄，正安排補貨，敬請稍候；補貨到貨後會通知您。">
+                  ⚪ 目前已售罄，正安排補貨，敬請稍候；補貨到貨後會通知您。 (淺色識別)
+                </option>
+                <option value="本活動已圓滿結束">⚪ 本活動已圓滿結束 (淺色識別)</option>
+                <option value="等待活動開始">⚪ 等待活動開始 (淺色識別)</option>
+                <option value="候補中">⚪ 候補中 (淺色識別)</option>
+              </select>
+              <p className="text-[11px] text-[#8d97b5]">
+                依據規則：除了「現貨供應」呈現鮮明亮色外，其餘狀態均自動轉為淺色識別。
+              </p>
             </div>
 
             <div className="flex items-center justify-between pt-2 border-t border-white/5 text-xs">
-              <label className="flex items-center gap-2 cursor-pointer text-white">
-                <input
-                  type="checkbox"
-                  checked={formData.inStock ?? true}
-                  onChange={(e) => setFormData({ ...formData, inStock: e.target.checked })}
-                  className="rounded border-white/20 text-emerald-500 focus:ring-0 cursor-pointer"
-                />
-                <span>是否有現貨供應 (In Stock)</span>
-              </label>
+              <div className="text-xs text-[#8d97b5]">
+                目前狀態識別：
+                {(formData.availabilityStatus || (formData.inStock === false ? '目前已售罄' : '現貨供應')) === '現貨供應' ? (
+                  <span className="text-emerald-400 font-bold ml-1">● 現貨供應 (正常色彩)</span>
+                ) : (
+                  <span className="text-white/60 ml-1">○ 非現貨 (自動轉淺色)</span>
+                )}
+              </div>
 
               <div className="flex items-center gap-2">
                 <span className="text-[#8d97b5] text-[11px]">促銷標籤：</span>
@@ -499,7 +597,7 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
 
           {/* Actions: Save & Delete */}
           <div className="pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3">
-            {onDeleteProduct ? (
+            {(isAdminOrSuperAdmin || isSubmitter) && onDeleteProduct ? (
               <button
                 type="button"
                 onClick={() => {
@@ -510,7 +608,7 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
                 className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-red-500/20 hover:bg-red-500/30 text-red-300 border border-red-500/40 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer transition-all"
               >
                 <Trash2 className="w-4 h-4" />
-                <span>刪除此產品</span>
+                <span>{isAdminOrSuperAdmin ? '刪除此產品' : '撤回 / 刪除此產品'}</span>
               </button>
             ) : (
               <div />
@@ -530,7 +628,7 @@ export const EditProductModal: React.FC<EditProductModalProps> = ({
                 className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-black font-extrabold text-xs flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/25 cursor-pointer transition-all"
               >
                 <Save className="w-4 h-4" />
-                <span>儲存並即時更新</span>
+                <span>儲存專屬狀態與產品詳情</span>
               </button>
             </div>
           </div>

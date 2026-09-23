@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { DreamEntry, DreamReport, DreamSynthesis, EngineSettings, QuickAnalysis, DetectiveQuestion, User, TherapistItem, normalizeRole, getRoleDisplayName, UserDreamContext, DreamMasterAnalysisResult } from '../types';
 import { initialDreamDNA, initialConstellationNodes, initialConstellationLinks, initialThirtyNightsJourney, initialDetectiveQuestions } from '../data';
+import { buildConstellationFromHistory } from '../utils/constellationHelper';
 import { exportHtmlToWord, copyFormattedText } from '../utils/wordExport';
 import { ReportDetailModal } from './ReportDetailModal';
 import { DetectiveInquiryModal } from './DetectiveInquiryModal';
@@ -41,6 +42,7 @@ import {
   Check,
   Plus,
   ShoppingBag,
+  X,
 } from 'lucide-react';
 
 interface DreamWorkspaceProps {
@@ -92,9 +94,15 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
 
   // Dynamic products state
   const [dreamDNA, setDreamDNA] = useState(initialDreamDNA);
-  const [constellationNodes] = useState(initialConstellationNodes);
-  const [constellationLinks] = useState(initialConstellationLinks);
+  const [constellationData, setConstellationData] = useState(() =>
+    buildConstellationFromHistory(initialHistory)
+  );
   const [mysteryJourney, setMysteryJourney] = useState(initialThirtyNightsJourney);
+
+  // Sync constellation when history updates with newly recorded dreams
+  useEffect(() => {
+    setConstellationData(buildConstellationFromHistory(history));
+  }, [history]);
 
   // Auto-fill if passed from HomeView
   useEffect(() => {
@@ -206,9 +214,9 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
     if (!isDirectUnlock) {
       if (stars < requiredStars) {
         if (isUpgradingFromPreliminary) {
-          setErrorNotice(`升級 Dream Master 深度解夢需再加 3 顆星星幣（已為你折抵初步分析之 3 星，你目前持有 ${stars} 顆）。你可以點擊上方「隨機彈出片儲星星」免費獲取，或升級付費會員！`);
+          setErrorNotice(`升級 Dream Master 深度解夢需再加 3 顆星星幣（已折抵初步分析之 3 星，你目前持有 ${stars} 顆）。你可以點擊隨機短片儲星（每次 +1 星）或升級會員！`);
         } else {
-          setErrorNotice(`直接進行 Dream Master 深度解夢需要 6 顆星星幣（你目前持有 ${stars} 顆）。你可以先用 3 星體驗初步分析，或點擊上方「隨機彈出片儲星星」儲滿 6 顆星！`);
+          setErrorNotice(`直接執行 Dream Master 深度解夢需要 6 顆星星幣（你目前持有 ${stars} 顆）。可先以 3 星體驗初步分析，或睇片儲滿 6 顆星！`);
         }
         return;
       }
@@ -307,7 +315,7 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
 
     if (!isDirectUnlock) {
       if (stars < requiredStars) {
-        setErrorNotice(`初步分析需要 3 顆星星幣（你目前持有 ${stars} 顆）。你可以點擊上方「隨機彈出片儲星星」免費獲取，或升級付費會員！`);
+        setErrorNotice(`執行初步分析需要 3 顆星星幣（你目前持有 ${stars} 顆）。你可以點擊隨機短片儲星（每次 +1 星）或升級會員！`);
         return;
       }
     }
@@ -372,17 +380,21 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
 
     // General member star checking: +3 stars if preliminary already completed, else 6 stars
     const stars = currentUser?.stars ?? 0;
-    const requiredStars = (paidPreliminary || quickReport) ? 3 : 6;
+    const isUpgradingFromPreliminary = Boolean(paidPreliminary || quickReport);
+    const requiredStars = isUpgradingFromPreliminary ? 3 : 6;
     if (stars >= requiredStars) {
       if (onUpdateUserStars) {
         onUpdateUserStars(stars - requiredStars);
       }
       setIsDetectiveOpen(true);
     } else {
+      if (isUpgradingFromPreliminary) {
+        setErrorNotice(`升級 Dream Master 深度解夢需再加 3 顆星星幣（已折抵初步分析之 3 星，你目前持有 ${stars} 顆）。你可以點擊隨機短片儲星（每次 +1 星）或升級會員！`);
+      } else {
+        setErrorNotice(`直接執行 Dream Master 深度解夢需要 6 顆星星幣（你目前持有 ${stars} 顆）。可先以 3 星體驗初步分析，或睇片儲滿 6 顆星！`);
+      }
       if (onOpenEarnStars) {
         onOpenEarnStars();
-      } else {
-        alert(`你的星星餘額為 ${stars} 顆（需要 ${requiredStars} 顆）。一般會員可透過觀看隨機短片儲星星！`);
       }
     }
   };
@@ -631,9 +643,40 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
       </div>
 
       {errorNotice && (
-        <div className="p-3.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-200 text-xs flex items-center gap-2">
-          <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-          <span>{errorNotice}</span>
+        <div className="p-3.5 rounded-2xl bg-amber-500/10 border border-amber-500/30 text-amber-200 text-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg">
+          <div className="flex items-center gap-2.5">
+            <AlertCircle className="w-4 h-4 text-amber-400 shrink-0" />
+            <span className="leading-relaxed">{errorNotice}</span>
+          </div>
+          <div className="flex items-center gap-2 shrink-0 self-end sm:self-center">
+            {onOpenEarnStars && (
+              <button
+                type="button"
+                onClick={onOpenEarnStars}
+                className="px-3 py-1.5 rounded-xl bg-amber-400 text-black font-bold text-xs flex items-center gap-1.5 hover:bg-amber-300 transition-colors cursor-pointer shadow-sm"
+              >
+                <Star className="w-3.5 h-3.5 fill-black" />
+                <span>睇片儲星 (+1 ⭐)</span>
+              </button>
+            )}
+            {onGoToPricing && (
+              <button
+                type="button"
+                onClick={onGoToPricing}
+                className="px-3 py-1.5 rounded-xl bg-white/10 hover:bg-white/20 text-white font-medium text-xs transition-colors cursor-pointer"
+              >
+                升級 VIP
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setErrorNotice(null)}
+              className="p-1.5 text-white/50 hover:text-white rounded-lg transition-colors cursor-pointer"
+              aria-label="關閉提示"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       )}
 
@@ -684,8 +727,8 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                   </div>
                   <p className="text-[11px] text-[#aab3d2] mt-0.5">
                     {normalizeRole(currentUser.role) === 'free'
-                      ? '一般會員星星機制：初步分析需 3 顆星 · Dream Master 深度解夢需 6 顆星（若已做初步分析，只需再加 3 星升級）。可隨機彈出片儲星！'
-                      : '付費會員與管理員已直接解鎖全部進階深度解夢、星圖宇宙與 30 夜探索功能，免看片免扣星。'}
+                      ? '一般會員星星機制：初步分析扣 3 顆星 · Dream Master 深度解夢直接執行需 6 顆星（若已做初步分析，折抵後只需加 3 顆星升級）。睇隨機短片每次儲 +1 星！'
+                      : '付費 VIP 會員維持全免扣星尊享特權：無限次初步分析與 Dream Master 深度解夢，直接解鎖，免看片免扣星。'}
                   </p>
                 </div>
               </div>
@@ -911,7 +954,7 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                       星星幣說明：
                     </span>
                     <span className="text-[#8d97b5]">
-                      初步分析需 <b className="text-amber-300">3 星</b> · 深度解夢需 <b className="text-amber-300">6 星</b>（先初析後只需加 <b className="text-amber-300">3 星</b> 升級）
+                      初步分析扣 <b className="text-amber-300">3 星 ⭐</b> · 深度解夢直接執行需 <b className="text-amber-300">6 星 ⭐</b>（初步分析後升級只需加 <b className="text-amber-300">3 星 ⭐</b>）
                     </span>
                     <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-400/10 border border-amber-400/25 text-amber-300 font-mono font-bold">
                       目前結餘：{currentUser?.stars ?? 0} ⭐
@@ -920,7 +963,7 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                 ) : (
                   <span className="text-[#78e1b5] font-medium flex items-center gap-1.5">
                     <Sparkles className="w-3.5 h-3.5 text-[#78e1b5]" />
-                    付費會員尊享：無限次初步分析與 Dream Master 深度解夢，免扣星星幣
+                    付費 VIP 會員維持全免扣星尊享特權：無限次初步分析與 Dream Master 深度解夢，免看片免扣星
                   </span>
                 )}
               </div>
@@ -932,7 +975,7 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                   disabled={isQuickAnalyzing || isMasterAnalyzing || !dream.trim()}
                   onClick={handlePerformQuickAnalysis}
                   id="workspace-quick-analyze-btn"
-                  title="初步分析需要 3 顆星星幣（付費會員免扣星）"
+                  title="初步分析扣除 3 顆星星幣（付費 VIP 會員全免扣星）"
                 >
                   {isQuickAnalyzing ? (
                     <>
@@ -965,8 +1008,8 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                     dream.trim().length < 15
                       ? '夢境文字少於 15 字，暫不可執行'
                       : (paidPreliminary || quickReport)
-                      ? '已做初步分析，只需再加 3 顆星升級 Dream Master 深度解夢'
-                      : '執行 Dream Master 深度心理學解夢（需 6 顆星）'
+                      ? '已完成初步分析，折抵後只需加 3 顆星升級 Dream Master 深度解夢'
+                      : '直接執行 Dream Master 深度解夢（需 6 顆星）'
                   }
                 >
                   {isMasterAnalyzing ? (
@@ -979,7 +1022,7 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                       <Sparkles className="w-4 h-4" />
                       <span>
                         {(paidPreliminary || quickReport)
-                          ? '升級 Dream Master 深度解夢'
+                          ? '升級 Dream Master 深度解夢（+3 星 ⭐）'
                           : 'Dream Master 深度解夢'}
                       </span>
                       {normalizeRole(currentUser?.role || 'free') === 'free' ? (
@@ -1278,7 +1321,7 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                 </div>
               </div>
 
-              {/* STEP 2 INVITATION: 升級 Dream Master 深度解夢 (需加 3 星) */}
+              {/* STEP 2 INVITATION: 升級 Dream Master 深度解夢 (折抵後只需加 3 顆星) */}
               <div className="mt-4 pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#aa9cff]/5 p-4 rounded-2xl border border-[#aa9cff]/20">
                 <div className="space-y-1">
                   <div className="flex items-center gap-1.5 text-xs font-bold text-[#c3b9ff]">
@@ -1289,15 +1332,15 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                         {getRoleDisplayName(currentUser.role)} · 免扣星尊享
                       </span>
                     ) : (
-                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 font-mono">
-                        折抵後只需 +3 顆星 ⭐
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-amber-400/20 text-amber-300 border border-amber-400/30 font-mono font-bold">
+                        折抵後只需加 3 顆星 ⭐
                       </span>
                     )}
                   </div>
                   <p className="text-xs text-[#aab3d2] leading-relaxed">
                     {currentUser && normalizeRole(currentUser.role) === 'free'
-                      ? `你已完成初步分析（消耗 3 顆星）。現只需再加 3 顆星星幣（目前結餘：${currentUser.stars ?? 0} 顆），即可展開 400-800 字深度心理學剖析與典籍文獻交叉檢索！`
-                      : '付費會員已享尊貴特權：直接解鎖 Dream Master 深度心理學剖析，並同步更新你的 DREAM DNA™️。'}
+                      ? `完成初步分析後，主操作按鈕與下方自動切換為折抵升級。點擊後僅扣除差額 3 顆星（累計共 6 星，目前結餘：${currentUser.stars ?? 0} 顆），即刻啟動 400–800 字深度心理學與典籍交叉解析！`
+                      : '付費 VIP 會員維持全免扣星尊享特權：即刻啟動 400–800 字深度心理學與典籍交叉解析！'}
                   </p>
                 </div>
 
@@ -1307,10 +1350,10 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                       type="button"
                       onClick={onOpenEarnStars}
                       className="px-3 py-2 rounded-xl bg-amber-400/20 text-amber-300 border border-amber-400/35 hover:bg-amber-400/30 text-xs font-bold flex items-center gap-1 cursor-pointer"
-                      title="睇 10 秒心靈短片賺星星幣"
+                      title="睇隨機短片儲星星幣 (+1 星)"
                     >
                       <Star className="w-3.5 h-3.5 fill-amber-300" />
-                      <span>睇片儲星 (+1)</span>
+                      <span>睇片儲星 (+1 ⭐)</span>
                     </button>
                   )}
 
@@ -1342,10 +1385,8 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                         <Sparkles className="w-3.5 h-3.5" />
                         <span>
                           {currentUser && normalizeRole(currentUser.role) !== 'free'
-                            ? '👑 直接升級 Dream Master 深度解夢'
-                            : (currentUser?.stars ?? 0) >= 3
-                            ? '🔮 加 3 星升級 Dream Master 深度解夢'
-                            : '🎬 儲星星幣加 3 星升級深度解夢'}
+                            ? '👑 直接升級 Dream Master 深度解夢 (VIP 免星)'
+                            : '升級 Dream Master 深度解夢（+3 星 ⭐）'}
                         </span>
                         <ArrowRight className="w-3.5 h-3.5" />
                       </>
@@ -1606,10 +1647,17 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
       {/* TAB 3: DREAM CONSTELLATION */}
       {activeTab === 'constellation' && (
         <DreamConstellationView
-          nodes={constellationNodes}
-          links={constellationLinks}
+          nodes={constellationData.nodes}
+          links={constellationData.links}
           dreams={history}
           onOpenReportDetail={(entry) => setSelectedEntry(entry)}
+          onRecordNewDream={() => setActiveTab('workspace')}
+          onAddCustomLink={(newLink) => {
+            setConstellationData((prev) => ({
+              ...prev,
+              links: [...prev.links, newLink],
+            }));
+          }}
         />
       )}
 

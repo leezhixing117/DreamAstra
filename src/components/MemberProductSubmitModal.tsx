@@ -125,6 +125,7 @@ export const MemberProductSubmitModal: React.FC<MemberProductSubmitModalProps> =
       imageUrl: imageUrl.trim() || PRESET_IMAGES[0].url,
       badge: '✨ 會員手作',
       inStock: true,
+      availabilityStatus: '現貨供應',
       status: willApproveImmediately ? 'approved' : 'pending',
       submittedByUserId: currentUser.id,
       submittedByUserName: currentUser.display_name || currentUser.email.split('@')[0],
