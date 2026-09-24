@@ -335,6 +335,9 @@ export const DreamConstellationView: React.FC<DreamConstellationViewProps> = ({
           <h2 className="text-2xl sm:text-3xl font-serif font-bold text-white mt-1.5">
             夢境星圖 · 宇宙連線
           </h2>
+          <p className="text-xs text-[#71d9ff] font-medium mt-1">
+            👉簡單講：將唔同夢境嘅人、地方、情緒連成星座網絡，睇清夢境之間嘅神秘關聯。
+          </p>
           <p className="text-xs sm:text-sm text-[#aab3d2] mt-1 max-w-2xl leading-relaxed">
             每一顆星代表一場真實夢境。節點代表核心象徵與心靈場域，引力線串聯相同情緒與情結演變。
             點擊星辰可即時查看心理報告與轉變軌跡。

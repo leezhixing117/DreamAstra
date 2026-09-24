@@ -140,7 +140,17 @@ export interface DreamEntry {
   id: string;
   title: string;
   dream_text: string;
-  created_at: string;
+  created_at: string; // 每條夢境自動記錄精確時間
+  sleepPeriod?: 'early_night' | 'midnight' | 'dawn_waking'; // 睡眠時段（入睡前期 / 深夜 / 清晨醒前）
+  dreamType?: 'normal' | 'nightmare' | 'lucid' | 'recurring' | 'prophetic'; // 夢境分類標籤（普通夢 / 噩夢 / 清醒夢 / 重複夢 / 預感夢）
+  emotionRating?: number; // 1-5 分情緒評分
+  guidedData?: {
+    characters?: string;
+    scene?: string;
+    emotion?: string;
+    keyObjects?: string;
+    plot?: string;
+  };
   report_json: DreamReport;
   rawCantoneseTranscription?: string;
   tags?: string[];

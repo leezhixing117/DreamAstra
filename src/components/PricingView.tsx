@@ -23,7 +23,7 @@ interface PricingViewProps {
   onOpenEarnStars: () => void;
   onUpgradeToPaid: () => void;
   onGoToApp: (tab?: 'workspace' | 'dna' | 'constellation' | 'mystery') => void;
-  onExchangeStorageQuota: () => void;
+  onOpenLogin?: () => void;
 }
 
 export const PricingView: React.FC<PricingViewProps> = ({
@@ -31,32 +31,36 @@ export const PricingView: React.FC<PricingViewProps> = ({
   onOpenEarnStars,
   onUpgradeToPaid,
   onGoToApp,
-  onExchangeStorageQuota,
+  onOpenLogin,
 }) => {
-  const [billingCycle, setBillingCycle] = useState<'monthly' | 'lifetime'>('monthly');
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly' | 'lifetime'>('yearly');
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(null);
 
   const normRole = currentUser ? normalizeRole(currentUser.role) : 'free';
   const isPaid = normRole === 'paid' || normRole === 'admin' || normRole === 'super_admin';
   const stars = currentUser?.stars ?? 0;
-  const currentQuota = isPaid ? '無限' : `${currentUser?.storage_quota || 3} 條 (上限 10 條)`;
+  const currentQuota = isPaid ? '無限存檔 (VIP)' : '不可儲存（免費探索）/ 扣星解鎖報告永久存檔';
 
   const pricingFaqs = [
     {
-      q: '睇廣告攞到嘅星星幣，會唔會過期？',
-      a: '唔會，星星幣永久喺你帳戶入面，唔會過期，你可以隨時按自己節奏慢慢儲、慢慢用。',
+      q: '⭐ 星星幣主要是用來做什麼的？',
+      a: '星星幣是專為「一般會員（免費用戶）」量身打造的探索代幣，核心用途如下：\n1. 【初步解夢分析】：消耗 3 顆星星幣，獲取主意象象徵解析、心理狀態與日常啟示。\n2. 【Dream Master 深度解夢】：直接執行四大維度深度解剖（榮格潛意識原型、弗洛伊德精神分析、東方周公吉凶、現代認知腦科學）需 6 顆星星幣。\n3. 【初析後智能升級補差額】：若已執行過初步分析，再升級深度解密時自動折抵，只需加 3 顆星星幣（絕不重覆扣費）！\n4. 【解鎖 CONSTELLATION™️ 夢境星圖與 DREAM DNA】：串聯潛意識關聯圖譜與情緒軌跡。\n5. 【解鎖紀錄永久保存】：凡扣星解鎖之夢境報告永久儲存於個人帳戶，星星幣亦永久有效不作廢！',
     },
     {
-      q: '用星星幣解鎖咗 AI 深入解密，個夢嘅分析會唔會消失？',
-      a: '唔會。只要你用星星幣解鎖咗某個夢境嘅深入解密，嗰個夢嘅所有四層心理學報告同指引會永久保存喺你帳戶歷史入面。',
+      q: '睇廣告短片攞到嘅星星幣，會唔會過期？',
+      a: '完全唔會！星星幣永久保存在你的帳戶中，永不過期。你可以隨心按照自己的節奏睇短片儲星（每次 +1 星），隨時使用。',
     },
     {
-      q: '付費之後，之前賺嘅星星幣仲有冇用？',
-      a: '依然保留喺帳戶！如果未來會籍調整，你之前累積嘅星星幣都依然有效，絕不作廢清零。',
+      q: '用星星幣解鎖咗深度解夢後，報告會唔會消失？',
+      a: '絕不會消失。只要你用星星幣解鎖了某個夢境的初步分析或 Dream Master 深度解密，該夢境的所有四大維度心理學報告與指引都會永久保存於你的夢境歷史記錄中。',
     },
     {
-      q: '免費同付費最大分別係咩？',
-      a: '免費版只可以試簡單單次解夢（最多儲存 3 條記錄）；星星幣可以逐次試深入解密同週報；付費版則完全免廣告、直接解鎖 CONSTELLATION™️ 互動星圖連線、無限夢境存檔、30 日全息完整總結報告與 PDF 匯出備份。',
+      q: '付費會員還需要消耗星星幣嗎？',
+      a: '不需要！付費會員（VIP）享有「全免扣星尊享特權」，無論是初步解夢還是 Dream Master 深度解讀均可無限次直接解鎖，完全免睇片、免扣星。之前累積的星星幣也會繼續永久保留在帳戶中。',
+    },
+    {
+      q: '免費探索、星星幣體驗與付費 VIP 的核心區別是什麼？',
+      a: '1. 【免費探索】：可即時免費輸入夢境獲得基礎意象分析，但「不可儲存夢境」，解讀結果僅供當次即時瀏覽，不佔存檔亦不存入日記。\n2. 【星星幣體驗】：免費用戶睇短片賺幣，3 星解鎖初步分析、6 星解鎖 Dream Master 深度解夢，凡扣星解鎖之夢境報告永久保存於帳戶日記中！\n3. 【付費 VIP 會員】：全面免廣告、免扣星無限次解夢、享有無限夢境存檔、CONSTELLATION™️ 互動星圖、30 日全息總結報告與 PDF 匯出隨身珍藏。',
     },
   ];
 
@@ -105,7 +109,7 @@ export const PricingView: React.FC<PricingViewProps> = ({
               <span>🆓 免費探索</span>
             </h2>
             <p className="text-xs text-[#aab3d2] mt-2 leading-relaxed min-h-[36px]">
-              可以直接輸入夢境獲得簡易解析；帳戶最多儲存 3 個夢境記錄，隨時體驗基礎操作。
+              輸入夢境獲取即時單次簡易解析；<b>免費探索不提供夢境儲存</b>，解析結果僅供當次即時瀏覽體驗。
             </p>
 
             <div className="my-5 pb-5 border-b border-white/10">
@@ -124,7 +128,7 @@ export const PricingView: React.FC<PricingViewProps> = ({
               <ul className="space-y-2 text-[#cbd2ef]">
                 <li className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-[#78e1b5] shrink-0 mt-0.5" />
-                  <span>單次夢境簡易解析（主意象、日常啟發）</span>
+                  <span>單次夢境即時簡易解析（主意象、日常啟發）</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-[#78e1b5] shrink-0 mt-0.5" />
@@ -132,19 +136,19 @@ export const PricingView: React.FC<PricingViewProps> = ({
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-[#78e1b5] shrink-0 mt-0.5" />
-                  <span><b>儲存最多 3 個夢境記錄</b></span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-[#78e1b5] shrink-0 mt-0.5" />
-                  <span>基礎夢境標籤分類、歷史記錄瀏覽</span>
+                  <span>即開即解、無門檻探索心靈意象</span>
                 </li>
               </ul>
 
-              <div className="pt-2 text-[11px] font-bold text-[#ff8b9d] uppercase tracking-wider">尚未包含：</div>
+              <div className="pt-2 text-[11px] font-bold text-[#ff8b9d] uppercase tracking-wider">限制與尚未包含：</div>
               <ul className="space-y-1.5 text-[#8d97b5]">
                 <li className="flex items-start gap-2">
+                  <X className="w-3.5 h-3.5 text-[#ff8b9d] shrink-0 mt-0.5" />
+                  <span className="text-[#ff8b9d] font-bold">不可儲存夢境（不提供歷史日記存檔）</span>
+                </li>
+                <li className="flex items-start gap-2">
                   <X className="w-3.5 h-3.5 text-[#ff8b9d]/70 shrink-0 mt-0.5" />
-                  <span>無 AI 深入解密（四層心理深度剖析）</span>
+                  <span>無 AI 深入解密（四層心理深度剖析，需星星幣或付費）</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <X className="w-3.5 h-3.5 text-[#ff8b9d]/70 shrink-0 mt-0.5" />
@@ -206,64 +210,59 @@ export const PricingView: React.FC<PricingViewProps> = ({
 
             {/* Feature Checklist */}
             <div className="space-y-2.5 text-xs">
-              <div className="text-[11px] font-bold text-amber-300 uppercase tracking-wider">星星幣可開啟功能與規則：</div>
+              <div className="text-[11px] font-bold text-amber-300 uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                <span>星星幣核心用途與開啟功能：</span>
+              </div>
               <ul className="space-y-2 text-[#cbd2ef]">
                 <li className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
-                  <span><b>初步分析（3 顆星）</b>：一般會員執行時扣除 3 顆星星幣，清楚標示「3 星 ⭐」</span>
+                  <span><b>初步解夢分析（3 顆星 ⭐）</b>：一般會員執行時扣除 3 顆星星幣，獲取核心象徵解讀與關鍵指引。</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
-                  <span><b>Dream Master 深度解夢（直接執行 6 顆星）</b>：直接執行需 6 顆星星幣，標示「6 星 ⭐」</span>
+                  <span><b>Dream Master 深度解夢（直接執行 6 顆星 ⭐）</b>：跨榮格潛意識、弗洛伊德精神分析、東方周公與現代腦科學四大權威維度。</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
-                  <span><b>初步分析後升級（折抵只需加 3 顆星）</b>：先初析後自動切換為「升級 Dream Master（+3 星 ⭐）」，僅扣差額 3 星</span>
+                  <span><b>初析後智能升級補差額（折抵只需 +3 顆星 ⭐）</b>：先初析後升級自動補差額，絕不重複扣星。</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
-                  <span><b>貼心餘額提示引導</b>：星星不足時引導點擊隨機短片儲星（每次 +1 星）或升級會員</span>
+                  <span><b>CONSTELLATION™️ 夢境星圖與 DREAM DNA</b>：即時串連個人夢境意象宇宙、情緒共鳴與潛意識頻率。</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
-                  <span><b>額外增加夢境儲存配額</b>（用 3 星兌換，上限最多 10 條）</span>
+                  <span><b>解鎖紀錄永久保存</b>：凡扣星解鎖之夢境深度報告永久保存於帳戶中，隨時重溫。</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <Check className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
-                  <span><b>基礎 DREAM DNA 統計</b>（個人情緒、象徵詞頻分析）與 30 夜探索中期報告</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Check className="w-4 h-4 text-amber-300 shrink-0 mt-0.5" />
-                  <span><b>CONSTELLATION™️ 夢境星圖宇宙連線</b>（即時串連夢境意象、情緒共鳴與心境軌跡）</span>
+                  <span><b>短片隨心免費儲星</b>：每睇 1 段身心靈短片廣告即送 +1 顆星，無有效期限、永不過期！</span>
                 </li>
               </ul>
 
-              <div className="pt-2 text-[11px] font-bold text-[#8d97b5] uppercase tracking-wider">限制說明：</div>
+              <div className="pt-2 text-[11px] font-bold text-[#8d97b5] uppercase tracking-wider">說明與限制：</div>
               <ul className="space-y-1.5 text-[#8d97b5]">
                 <li className="flex items-start gap-2">
-                  <X className="w-3.5 h-3.5 text-white/40 shrink-0 mt-0.5" />
-                  <span>高清高解析度星圖圖片匯出需付費 VIP 權限</span>
+                  <span className="text-white/40 shrink-0 mt-0.5 font-mono text-[10px]">•</span>
+                  <span>免費探索不提供存檔；凡使用星星幣解鎖之初步/深度報告永久保存於帳戶（付費 VIP 享無限存檔）</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <X className="w-3.5 h-3.5 text-white/40 shrink-0 mt-0.5" />
-                  <span>唔解鎖 30 日全息完整總結報告</span>
+                  <span>高清星圖下載、PDF 匯出備份及 30 日全息總結需付費 VIP 權限</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <X className="w-3.5 h-3.5 text-white/40 shrink-0 mt-0.5" />
-                  <span>儲存配額設有上限（最多 10 條）</span>
-                </li>
-                <li className="flex items-start gap-2">
-                  <X className="w-3.5 h-3.5 text-white/40 shrink-0 mt-0.5" />
-                  <span>不能 PDF 匯出</span>
+                  <span>星星幣為平台功能體驗代幣，純作功能解鎖，不可兌換現金</span>
                 </li>
               </ul>
             </div>
 
             {/* Micro Rules Notice */}
-            <div className="mt-4 p-3 rounded-xl bg-amber-400/5 border border-amber-400/20 text-[11px] text-amber-200/80 space-y-1">
+            <div className="mt-4 p-3 rounded-xl bg-amber-400/5 border border-amber-400/20 text-[11px] text-amber-200/90 space-y-1">
+              <div className="font-semibold text-amber-300">💡 星星幣使用守則：</div>
               <div>• 初步分析 3 星 · 深度解夢直接執行 6 星（先初析後升級只需加 3 星）</div>
-              <div>• 星星幣永久保留，<b>唔會過期</b>；解鎖之深度紀錄<b>永久保留</b></div>
-              <div>• 星星幣不可兌換現金，純作平台功能體驗兌換</div>
+              <div>• 星星幣永久有效<b>永不過期</b>；解鎖報告<b>永久保存</b>於你的歷史中</div>
             </div>
           </div>
 
@@ -271,25 +270,20 @@ export const PricingView: React.FC<PricingViewProps> = ({
             <button
               type="button"
               onClick={onOpenEarnStars}
-              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-black font-bold text-xs flex items-center justify-center gap-1.5 hover:opacity-95 transition-opacity cursor-pointer shadow-md"
+              className="w-full py-2.5 px-4 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 text-black font-bold text-xs flex items-center justify-center gap-1.5 hover:opacity-95 transition-opacity cursor-pointer shadow-md shadow-amber-500/20"
               id="pricing-watch-ad-btn"
             >
               <Tv className="w-3.5 h-3.5" />
-              <span>睇片賺星星幣 (+1 顆)</span>
+              <span>睇片賺星星幣 (+1 顆 ⭐) · 現有 {stars} 顆</span>
             </button>
 
             <button
               type="button"
-              onClick={onExchangeStorageQuota}
-              disabled={stars < 3}
-              className={`w-full py-2 px-3 rounded-xl border text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-                stars >= 3
-                  ? 'bg-white/5 border-amber-400/40 text-amber-200 hover:bg-amber-400/10'
-                  : 'bg-white/[0.02] border-white/5 text-[#8d97b5] cursor-not-allowed opacity-60'
-              }`}
+              onClick={() => onGoToApp('workspace')}
+              className="w-full py-2.5 px-3 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 text-white text-xs flex items-center justify-center gap-1.5 transition-all cursor-pointer font-medium"
             >
-              <Database className="w-3.5 h-3.5" />
-              <span>用 3 星幣兌換 +3 夢境配額 (目前: {stars}星)</span>
+              <ArrowRight className="w-3.5 h-3.5 text-amber-400" />
+              <span>前往解夢工作台體驗（初步3星 · 深度6星）</span>
             </button>
           </div>
         </div>
@@ -310,40 +304,90 @@ export const PricingView: React.FC<PricingViewProps> = ({
               一次開晒全部功能：完整互動星圖、30 日全息報告、無限儲存、PDF 匯出備份，完全唔使睇廣告！
             </p>
 
-            {/* Billing switcher */}
-            <div className="my-4 p-1 rounded-xl bg-white/5 border border-white/10 flex items-center text-xs">
+            {/* Billing switcher: 月費 / 年費 (年費有優惠) / 終身 */}
+            <div className="my-4 p-1 rounded-xl bg-white/5 border border-white/10 flex items-center text-xs gap-1">
               <button
                 type="button"
                 onClick={() => setBillingCycle('monthly')}
-                className={`flex-1 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
-                  billingCycle === 'monthly' ? 'bg-[#aa9cff] text-black font-bold' : 'text-[#aab3d2]'
+                className={`flex-1 py-1.5 rounded-lg font-medium transition-all cursor-pointer text-center ${
+                  billingCycle === 'monthly' ? 'bg-[#aa9cff] text-black font-bold shadow' : 'text-[#aab3d2] hover:text-white'
                 }`}
               >
-                月度訂閱
+                月費方案
+              </button>
+              <button
+                type="button"
+                onClick={() => setBillingCycle('yearly')}
+                className={`flex-1 py-1.5 rounded-lg font-medium transition-all cursor-pointer text-center relative ${
+                  billingCycle === 'yearly' ? 'bg-[#aa9cff] text-black font-bold shadow' : 'text-amber-300 hover:text-amber-200'
+                }`}
+              >
+                <span>年費方案</span>
+                <span className="ml-1 text-[10px] px-1 py-0.2 rounded bg-amber-400 text-black font-extrabold">
+                  慳35%
+                </span>
               </button>
               <button
                 type="button"
                 onClick={() => setBillingCycle('lifetime')}
-                className={`flex-1 py-1.5 rounded-lg font-medium transition-all cursor-pointer ${
-                  billingCycle === 'lifetime' ? 'bg-[#aa9cff] text-black font-bold' : 'text-[#aab3d2]'
+                className={`py-1.5 px-2.5 rounded-lg font-medium transition-all cursor-pointer text-center ${
+                  billingCycle === 'lifetime' ? 'bg-[#aa9cff] text-black font-bold shadow' : 'text-[#aab3d2] hover:text-white'
                 }`}
               >
-                一次性永久買斷
+                終身
               </button>
             </div>
 
+            {/* Price & Billing Cycle Display */}
             <div className="pb-4 mb-4 border-b border-white/10">
-              <div className="flex items-baseline gap-1">
+              <div className="flex items-baseline gap-1.5">
                 <span className="text-3xl sm:text-4xl font-extrabold text-white font-mono">
-                  {billingCycle === 'monthly' ? 'HK$88' : 'HK$588'}
+                  {billingCycle === 'yearly'
+                    ? 'HK$298'
+                    : billingCycle === 'monthly'
+                    ? 'HK$38'
+                    : 'HK$588'}
                 </span>
                 <span className="text-xs text-[#aab3d2]">
-                  {billingCycle === 'monthly' ? '/ 每月' : '/ 終身永久存取'}
+                  {billingCycle === 'yearly'
+                    ? '/ 年費 (HKD)'
+                    : billingCycle === 'monthly'
+                    ? '/ 月費 (HKD)'
+                    : '/ 終身買斷 (HKD)'}
                 </span>
               </div>
-              <p className="text-[11px] text-[#78e1b5] mt-1 font-mono">
-                {billingCycle === 'monthly' ? '隨時取消訂閱 · 無合約束縛' : '一次付款 · 終生無限探索潛意識'}
+
+              {/* Annual Discount Banner */}
+              {billingCycle === 'yearly' && (
+                <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-400/20 text-amber-300 border border-amber-400/40 text-xs font-bold">
+                  <span>🔥 年費限時特惠：折合約 HK$24.8 / 月 · 享 35% 優惠（即慳 HK$158）！</span>
+                </div>
+              )}
+
+              <p className="text-[11px] text-[#78e1b5] mt-1.5 font-mono">
+                {billingCycle === 'yearly'
+                  ? '週期：按年扣款 · 全年無限解夢 · 送完整星圖與 30 晚檔案'
+                  : billingCycle === 'monthly'
+                  ? '週期：按月扣款 · 彈性自由 · 隨時可取消訂閱無合約束縛'
+                  : '週期：一次付款 · 終生永久無限探索潛意識'}
               </p>
+
+              {/* Cycle Comparison Bar */}
+              <div className="mt-3 p-2.5 rounded-xl bg-white/[0.03] border border-white/10 text-[11px] space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="text-[#aab3d2]">月費週期：</span>
+                  <span className="font-mono text-white">HK$38 / 月（按月扣款，隨時取消）</span>
+                </div>
+                <div className="flex items-center justify-between text-amber-300 font-bold">
+                  <span className="flex items-center gap-1">
+                    <span>年費週期：</span>
+                    <span className="text-[9px] px-1 py-0.2 rounded bg-amber-400/20 text-amber-300 border border-amber-400/30">
+                      有優惠
+                    </span>
+                  </span>
+                  <span className="font-mono">HK$298 / 年（折合 HK$24.8/月，慳 HK$158）</span>
+                </div>
+              </div>
             </div>
 
             {/* Feature Checklist */}
@@ -396,7 +440,13 @@ export const PricingView: React.FC<PricingViewProps> = ({
                 id="pricing-upgrade-btn"
               >
                 <Crown className="w-4 h-4 text-amber-300" />
-                <span>立即啟用付費會員 ({billingCycle === 'monthly' ? 'HK$88/月' : 'HK$588 買斷'})</span>
+                <span>
+                  {billingCycle === 'yearly'
+                    ? '立即啟用付費會員（年費特惠 HK$298/年 · 慳35%）'
+                    : billingCycle === 'monthly'
+                    ? '立即啟用付費會員（月費 HK$38/月）'
+                    : '立即啟用付費會員（終生買斷 HK$588）'}
+                </span>
               </button>
             )}
           </div>

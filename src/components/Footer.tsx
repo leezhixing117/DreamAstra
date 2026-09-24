@@ -135,7 +135,7 @@ export const Footer: React.FC<FooterProps> = ({
 
         {/* Bottom Disclaimer */}
         <div className="pt-6 border-t border-white/5 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-[#6b7596]">
-          <p>© {new Date().getFullYear()} DreamWisdom. 專為香港用戶設計的個人夢境自我覺察工具。非醫療或臨床診斷工具。</p>
+          <p>© {new Date().getFullYear()} DreamWisdom. 本平台只做基於心理學的自我反思工具，不做吉凶預測；本平台不是心理治療、不是精神科服務，非臨床醫療途徑。</p>
           <div className="flex items-center gap-4">
             <button
               type="button"

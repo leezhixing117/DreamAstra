@@ -5,7 +5,7 @@ import { Sparkles, Dna, Compass, Key, Clock, Brain, Settings, ArrowLeft, LogOut,
 interface SidebarProps {
   currentUser?: User | null;
   activeSection?: 'workspace' | 'dna' | 'constellation' | 'mystery' | 'history' | 'patterns';
-  onNavigate: (view: 'home' | 'app' | 'pricing' | 'privacy' | 'store' | 'admin', section?: 'workspace' | 'dna' | 'constellation' | 'mystery' | 'history' | 'patterns') => void;
+  onNavigate: (view: 'home' | 'app' | 'pricing' | 'privacy' | 'store' | 'admin' | 'stars', section?: 'workspace' | 'dna' | 'constellation' | 'mystery' | 'history' | 'patterns') => void;
   onLogout: () => void;
   onOpenEarnStars?: () => void;
 }
@@ -138,12 +138,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {/* Pricing & Star Coins Nav Link */}
         <button
           type="button"
+          onClick={() => onNavigate('stars')}
+          className="sideitem text-amber-300 hover:text-amber-200"
+          id="sidebar-item-stars"
+          title="獨立星星幣頁面：查看儲幣、消耗明細與有效期限"
+        >
+          <Star className="w-4 h-4 text-amber-300 fill-amber-300/40" />
+          <span>⭐ 星星幣詳情</span>
+        </button>
+
+        <button
+          type="button"
           onClick={() => onNavigate('pricing')}
           className="sideitem text-amber-200/90 hover:text-amber-100"
           id="sidebar-item-pricing"
         >
-          <Star className="w-4 h-4 text-amber-300 fill-amber-300" />
-          <span>⭐ 方案與星星幣</span>
+          <Crown className="w-4 h-4 text-amber-400" />
+          <span>💎 VIP 方案升級</span>
         </button>
 
         {/* Product Store / Healing goods */}

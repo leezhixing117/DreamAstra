@@ -101,6 +101,10 @@ export const DreamPortalModal: React.FC<DreamPortalModalProps> = ({
               <img
                 src="/dream_cover_vertical.jpg"
                 alt="夢境宇宙門戶 - 潛意識之鑰與櫻花浮島"
+                loading="lazy"
+                decoding="async"
+                width="720"
+                height="1280"
                 referrerPolicy="no-referrer"
                 className="w-full h-auto object-cover object-center transition-transform duration-700 group-hover:scale-105"
               />

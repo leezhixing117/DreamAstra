@@ -355,7 +355,7 @@ export const StarVideoModal: React.FC<StarVideoModalProps> = ({
             </button>
           ) : (
             <div className="flex items-center justify-between text-xs text-[#8d97b5] px-1">
-              <span>倒數完成後立即派發星星幣，可兌換配額及折抵選物。</span>
+              <span>倒數完成後立即派發星星幣，可用於執行初步解夢（3星）及 Dream Master 深度解夢（6星）。</span>
               <button
                 type="button"
                 onClick={onClose}

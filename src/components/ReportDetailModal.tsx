@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { DreamEntry } from '../types';
-import { X, Calendar, BookOpen, HelpCircle, Check, Copy, Trash2, Sparkles, Compass, Dna, Layers, ShieldCheck, Heart, Clock } from 'lucide-react';
+import { X, Calendar, BookOpen, HelpCircle, Check, Copy, Trash2, Sparkles, Compass, Dna, Layers, ShieldCheck, Heart, Clock, Share2 } from 'lucide-react';
+import { AnonymizedShareModal } from './AnonymizedShareModal';
 
 interface ReportDetailModalProps {
   entry: DreamEntry | null;
@@ -13,7 +14,8 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
   onClose,
   onDelete,
 }) => {
-  const [copied, setCopied] = React.useState(false);
+  const [copied, setCopied] = useState(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
 
   if (!entry) return null;
   const report = entry.report_json;
@@ -50,6 +52,16 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setIsShareModalOpen(true)}
+              className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#aa9cff]/20 to-[#71d9ff]/20 border border-[#aa9cff]/40 text-white hover:brightness-110 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all shadow-sm"
+              title="分享打碼隱去個人內容的洞察報告（社交傳播）"
+              id="report-detail-share-btn"
+            >
+              <Share2 className="w-3.5 h-3.5 text-[#71d9ff]" />
+              <span>分享打碼洞察</span>
+            </button>
             <button
               type="button"
               onClick={handleCopy}
@@ -342,6 +354,19 @@ export const ReportDetailModal: React.FC<ReportDetailModalProps> = ({
           </div>
         )}
       </div>
+
+      {/* Anonymized Share Modal */}
+      <AnonymizedShareModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        reportTitle={report.title}
+        dreamText={entry.dream_text}
+        summary={report.summary}
+        symbols={report.symbols}
+        archetype={report.fourLayers?.jungianLayer.title}
+        healingAdvice={report.fourLayers?.integrationAction.advice}
+        question={report.questions?.[0]}
+      />
     </div>
   );
 };

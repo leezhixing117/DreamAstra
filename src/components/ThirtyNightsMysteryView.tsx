@@ -91,6 +91,9 @@ export const ThirtyNightsMysteryView: React.FC<ThirtyNightsMysteryViewProps> = (
           <h2 className="text-2xl sm:text-3xl font-serif font-bold text-white mt-1">
             30 日夢境盲盒探索
           </h2>
+          <p className="text-xs text-amber-300 font-medium mt-1">
+            👉簡單講：連續記錄 30 晚夢境，好似偵探破案咁，逐晚解鎖潛意識畀你嘅線索拼圖。
+          </p>
           <p className="text-xs sm:text-sm text-[#aab3d2] mt-1 max-w-2xl leading-relaxed">
             一個夢，看見一個訊息；累積 30 個夢，看見你的完整模式。
             毋須連續記夢，中斷永不歸零。每滿 7 天即解鎖階段回饋，累積滿 30 夜自動揭開終極全息盲盒！

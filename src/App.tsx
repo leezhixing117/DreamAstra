@@ -17,6 +17,7 @@ import { StarVideoModal } from './components/StarVideoModal';
 import { PricingView } from './components/PricingView';
 import { PrivacyView } from './components/PrivacyView';
 import { ProductStoreView } from './components/ProductStoreView';
+import { StarCoinsView } from './components/StarCoinsView';
 import { Footer } from './components/Footer';
 import { INITIAL_PRODUCTS } from './data/products';
 import { Sparkles, ShieldAlert, BookOpen, Star, Package, Tv } from 'lucide-react';
@@ -24,7 +25,7 @@ import { DreamAtmosphereController } from './components/DreamAtmosphereControlle
 
 export default function App() {
   // Load or initialize state from localStorage
-  const [currentView, setCurrentView] = useState<'home' | 'app' | 'pricing' | 'privacy' | 'store' | 'admin'>('home');
+  const [currentView, setCurrentView] = useState<'home' | 'app' | 'pricing' | 'privacy' | 'store' | 'admin' | 'stars'>('home');
   const [activeSection, setActiveSection] = useState<'workspace' | 'dna' | 'constellation' | 'mystery' | 'history' | 'patterns'>('workspace');
   const [isLoginOpen, setIsLoginOpen] = useState(false);
   const [isStarVideoOpen, setIsStarVideoOpen] = useState(false);
@@ -259,12 +260,108 @@ export default function App() {
     localStorage.setItem('dreamwisdom_therapists', JSON.stringify(therapists));
   }, [therapists]);
 
-  // Navigate handler
+  // Apply URL anchor routing (e.g. #recorddream, #pricing, #privacy, #dna, etc.)
+  const applyRouteFromHash = (hashStr: string) => {
+    const raw = (hashStr || window.location.hash || '').replace(/^#/, '').toLowerCase().trim();
+    if (!raw) return;
+
+    if (raw === 'recorddream' || raw === 'record-dream' || raw === 'record' || raw === 'dream') {
+      setCurrentView('app');
+      setActiveSection('workspace');
+      setTimeout(() => {
+        const el = document.getElementById('recorddream') || document.getElementById('dream-input-section');
+        if (el) el.scrollIntoView({ behavior: 'smooth' });
+        else window.scrollTo({ top: 0, behavior: 'smooth' });
+      }, 80);
+    } else if (raw === 'pricing' || raw === 'plan' || raw === 'plans') {
+      setCurrentView('pricing');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (raw === 'privacy' || raw === 'terms') {
+      setCurrentView('privacy');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (raw === 'store' || raw === 'shop') {
+      setCurrentView('store');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (raw === 'stars' || raw === 'coin' || raw === 'coins') {
+      setCurrentView('stars');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (raw === 'dna' || raw === 'dreamdna') {
+      setCurrentView('app');
+      setActiveSection('dna');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (raw === 'constellation' || raw === 'star-map') {
+      setCurrentView('app');
+      setActiveSection('constellation');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (raw === 'mystery' || raw === '30nights') {
+      setCurrentView('app');
+      setActiveSection('mystery');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } else if (raw === 'history' || raw === 'journal') {
+      setCurrentView('app');
+      setActiveSection('history');
+      setTimeout(() => {
+        document.getElementById('history-section')?.scrollIntoView({ behavior: 'smooth' });
+      }, 80);
+    } else if (raw === 'patterns') {
+      setCurrentView('app');
+      setActiveSection('patterns');
+      setTimeout(() => {
+        document.getElementById('patterns')?.scrollIntoView({ behavior: 'smooth' });
+      }, 80);
+    } else if (raw === 'admin') {
+      setCurrentView('admin');
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
+
+  // Sync hash routing on initial mount and hashchange event
+  useEffect(() => {
+    applyRouteFromHash(window.location.hash);
+
+    const handleHashChange = () => {
+      applyRouteFromHash(window.location.hash);
+    };
+
+    window.addEventListener('hashchange', handleHashChange);
+    return () => window.removeEventListener('hashchange', handleHashChange);
+  }, []);
+
+  // Navigate handler with URL hash sync for SEO and social bookmarking
   const handleNavigate = (
-    view: 'home' | 'app' | 'pricing' | 'privacy' | 'store' | 'admin',
+    view: 'home' | 'app' | 'pricing' | 'privacy' | 'store' | 'admin' | 'stars',
     section?: 'workspace' | 'dna' | 'constellation' | 'mystery' | 'history' | 'patterns'
   ) => {
     setCurrentView(view);
+
+    // Synchronize browser URL hash for easy sharing and SEO indexability
+    let targetHash = '';
+    if (view === 'home') {
+      targetHash = '';
+    } else if (view === 'pricing') {
+      targetHash = '#pricing';
+    } else if (view === 'privacy') {
+      targetHash = '#privacy';
+    } else if (view === 'store') {
+      targetHash = '#store';
+    } else if (view === 'stars') {
+      targetHash = '#stars';
+    } else if (view === 'admin') {
+      targetHash = '#admin';
+    } else if (view === 'app') {
+      if (section === 'workspace') targetHash = '#recorddream';
+      else if (section) targetHash = `#${section}`;
+      else targetHash = '#recorddream';
+    }
+
+    try {
+      if (targetHash) {
+        window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}${targetHash}`);
+      } else {
+        window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+      }
+    } catch {}
+
     if (section) {
       setActiveSection(section);
       setTimeout(() => {
@@ -285,6 +382,9 @@ export default function App() {
     setPrefilledDream(dreamText);
     setActiveSection('workspace');
     setCurrentView('app');
+    try {
+      window.history.replaceState(null, '', `${window.location.pathname}${window.location.search}#recorddream`);
+    } catch {}
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -438,6 +538,26 @@ export default function App() {
     localStorage.removeItem('dreamwisdom_history');
   };
 
+  // One-click delete entire account along with all dream records (Right to be forgotten)
+  const handleDeleteAccountAndData = async () => {
+    if (!currentUser) {
+      handleClearAllDreams();
+      return;
+    }
+    const currentId = currentUser.id;
+    setHistory([]);
+    localStorage.removeItem('dreamwisdom_history');
+    setUsers((prev) => prev.filter((u) => u.id !== currentId));
+    setCurrentUser(null);
+    try {
+      localStorage.removeItem('dreamwisdom_current_user');
+      await fetch(`/api/users/${currentId}`, { method: 'DELETE' });
+    } catch (e) {
+      console.warn('Failed to delete user on backend', e);
+    }
+    setCurrentView('home');
+  };
+
   // Toggle local-only mode
   const handleToggleLocalOnly = (localOnly: boolean) => {
     if (!currentUser) return;
@@ -505,6 +625,7 @@ export default function App() {
         onOpenEarnStars={() => setIsStarVideoOpen(true)}
         activeSection={activeSection}
         onNavigateSection={(sec) => handleNavigate('app', sec)}
+        savedDreamCount={history.length}
       />
 
 
@@ -526,12 +647,10 @@ export default function App() {
       {currentView === 'pricing' && (
         <PricingView
           currentUser={currentUser}
-          currentStoredDreamsCount={history.length}
           onOpenEarnStars={() => setIsStarVideoOpen(true)}
           onOpenLogin={() => setIsLoginOpen(true)}
           onUpgradeToPaid={handleUpgradeToPaid}
-          onExchangeQuota={handleExchangeQuota}
-          onGoToWorkspace={() => handleNavigate('app', 'workspace')}
+          onGoToApp={(tab) => handleNavigate('app', tab || 'workspace')}
         />
       )}
 
@@ -540,8 +659,12 @@ export default function App() {
           currentUser={currentUser}
           currentStoredDreamsCount={history.length}
           onClearAllData={handleClearAllDreams}
+          onDeleteAccountAndData={handleDeleteAccountAndData}
           onToggleLocalOnly={handleToggleLocalOnly}
+          isLocalOnly={!!currentUser?.privacy_local_only}
+          onGoToApp={(tab) => handleNavigate('app', tab as any || 'workspace')}
           onGoBack={() => handleNavigate('home')}
+          therapists={therapists}
         />
       )}
 
@@ -557,6 +680,15 @@ export default function App() {
           onNavigateToWorkspace={() => handleNavigate('app', 'workspace')}
           onUpdateProducts={(updated) => setProducts(updated)}
           onNavigateToAdmin={() => handleNavigate('admin')}
+        />
+      )}
+
+      {currentView === 'stars' && (
+        <StarCoinsView
+          currentUser={currentUser}
+          onOpenEarnStars={() => setIsStarVideoOpen(true)}
+          onGoToWorkspace={() => handleNavigate('app', 'workspace')}
+          onGoToPricing={() => handleNavigate('pricing')}
         />
       )}
 

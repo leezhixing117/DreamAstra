@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { DreamEntry, DreamReport, DreamSynthesis, EngineSettings, QuickAnalysis, DetectiveQuestion, User, TherapistItem, normalizeRole, getRoleDisplayName, UserDreamContext, DreamMasterAnalysisResult } from '../types';
 import { initialDreamDNA, initialConstellationNodes, initialConstellationLinks, initialThirtyNightsJourney, initialDetectiveQuestions } from '../data';
 import { buildConstellationFromHistory } from '../utils/constellationHelper';
@@ -10,6 +10,9 @@ import { DreamConstellationView } from './DreamConstellationView';
 import { ThirtyNightsMysteryView } from './ThirtyNightsMysteryView';
 import { DreamJournalManager } from './DreamJournalManager';
 import { TherapeuticSupportModal } from './TherapeuticSupportModal';
+import { SampleReportPreviewModal } from './SampleReportPreviewModal';
+import { NightmareCareModal } from './NightmareCareModal';
+import { AnonymizedShareModal } from './AnonymizedShareModal';
 import {
   Sparkles,
   Brain,
@@ -43,6 +46,12 @@ import {
   Plus,
   ShoppingBag,
   X,
+  Edit3,
+  ListFilter,
+  Activity,
+  Smile,
+  Tv,
+  Share2,
 } from 'lucide-react';
 
 interface DreamWorkspaceProps {
@@ -77,6 +86,16 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
   const [dream, setDream] = useState(prefilledDream);
   const [isDetectiveOpen, setIsDetectiveOpen] = useState(false);
   const [isTherapeuticOpen, setIsTherapeuticOpen] = useState(false);
+
+  // Auto-expanding textarea ref for mobile & desktop
+  const dreamTextareaRef = useRef<HTMLTextAreaElement>(null);
+  const handleDreamTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    setDream(e.target.value);
+    if (dreamTextareaRef.current) {
+      dreamTextareaRef.current.style.height = 'auto';
+      dreamTextareaRef.current.style.height = `${Math.max(140, dreamTextareaRef.current.scrollHeight)}px`;
+    }
+  };
 
   // Loading states
   const [isQuickAnalyzing, setIsQuickAnalyzing] = useState(false);
@@ -130,6 +149,87 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
   const [followUpHistory, setFollowUpHistory] = useState<Array<{ q: string; a: string }>>([]);
   const [copiedWordNotice, setCopiedWordNotice] = useState(false);
   const [paidPreliminary, setPaidPreliminary] = useState(false);
+
+  // Anonymized insight sharing states
+  const [isShareModalOpen, setIsShareModalOpen] = useState(false);
+  const [shareModalData, setShareModalData] = useState<{
+    title: string;
+    dreamText?: string;
+    summary: string;
+    symbols?: Array<{ symbol: string; meaning: string }>;
+    archetype?: string;
+    noteworthyMessage?: string;
+    healingAdvice?: string;
+    question?: string;
+  } | null>(null);
+
+  const handleOpenShare = (data: {
+    title: string;
+    dreamText?: string;
+    summary: string;
+    symbols?: Array<{ symbol: string; meaning: string }>;
+    archetype?: string;
+    noteworthyMessage?: string;
+    healingAdvice?: string;
+    question?: string;
+  }) => {
+    setShareModalData(data);
+    setIsShareModalOpen(true);
+  };
+
+  // Dual-mode input states: Mode A (free text) vs Mode B (guided form)
+  const [inputMode, setInputMode] = useState<'free' | 'guided'>('free');
+  const [guidedCharacters, setGuidedCharacters] = useState('');
+  const [guidedScene, setGuidedScene] = useState('');
+  const [guidedEmotion, setGuidedEmotion] = useState('');
+  const [guidedObjects, setGuidedObjects] = useState('');
+  const [guidedPlot, setGuidedPlot] = useState('');
+
+  // Metadata expansion states
+  const [recordTime] = useState(() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+  });
+  const [sleepPeriod, setSleepPeriod] = useState<'early_night' | 'midnight' | 'dawn_waking'>('dawn_waking');
+  const [dreamType, setDreamType] = useState<'normal' | 'nightmare' | 'lucid' | 'recurring' | 'prophetic'>('normal');
+  const [emotionRating, setEmotionRating] = useState<number>(3);
+
+  // Sample Preview & Nightmare Care Modals
+  const [isSamplePreviewOpen, setIsSamplePreviewOpen] = useState(false);
+  const [isNightmareCareOpen, setIsNightmareCareOpen] = useState(false);
+
+  // Synthesize guided fragmented form into cohesive dream text
+  const handleGenerateFromGuided = () => {
+    const parts: string[] = [];
+    if (guidedCharacters.trim()) parts.push(`【人物】：${guidedCharacters.trim()}`);
+    if (guidedScene.trim()) parts.push(`【場景】：${guidedScene.trim()}`);
+    if (guidedEmotion.trim()) parts.push(`【主要情緒】：${guidedEmotion.trim()}`);
+    if (guidedObjects.trim()) parts.push(`【關鍵物件】：${guidedObjects.trim()}`);
+    if (guidedPlot.trim()) parts.push(`【簡短劇情】：${guidedPlot.trim()}`);
+
+    if (parts.length === 0) {
+      setErrorNotice('請在引導表單中填寫至少一欄（每欄可留空，隨意填寫零碎印象即可）');
+      return;
+    }
+
+    let narrative = '';
+    if (guidedScene.trim() || guidedCharacters.trim()) {
+      narrative += `昨晚夢到${guidedScene.trim() ? `在${guidedScene.trim()}` : ''}${guidedCharacters.trim() ? `遇見${guidedCharacters.trim()}` : ''}。`;
+    }
+    if (guidedObjects.trim()) {
+      narrative += `夢中出現了${guidedObjects.trim()}。`;
+    }
+    if (guidedPlot.trim()) {
+      narrative += `${guidedPlot.trim()}。`;
+    }
+    if (guidedEmotion.trim()) {
+      narrative += `醒來時整個人感覺${guidedEmotion.trim()}。`;
+    }
+
+    const combined = narrative ? `${narrative}\n\n${parts.join('\n')}` : parts.join('\n');
+    setDream(combined);
+    setInputMode('free');
+  };
 
   // Export Dream Master report as Microsoft Word (.doc)
   const handleExportMasterToWord = () => {
@@ -248,6 +348,47 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
       // Deduct stars for free tier after successful Dream Master analysis
       if (!isDirectUnlock && onUpdateUserStars) {
         onUpdateUserStars(Math.max(0, stars - requiredStars));
+      }
+
+      // Check storage policy quota
+      const normRoleUser = currentUser ? normalizeRole(currentUser.role) : 'free';
+      const isPaidUser = normRoleUser === 'paid' || normRoleUser === 'admin' || normRoleUser === 'super_admin';
+      const maxQuota = isPaidUser ? 99999 : (currentUser?.storage_quota || 3);
+
+      if (!isPaidUser && history.length >= maxQuota) {
+        setErrorNotice(
+          `⚠️ 儲存提醒：你目前為免費用戶，已達到夢境儲存上限（${history.length} / ${maxQuota} 條）。已為你完成解讀，但未能存入日記。請前往日記刪除舊記錄，或升級付費版解鎖無限儲存！`
+        );
+      } else {
+        const newEntry: DreamEntry = {
+          id: 'dream_' + Date.now(),
+          title: data.cleaned_dream ? (data.cleaned_dream.slice(0, 16) + '…') : (dream.trim().slice(0, 16) + '…'),
+          dream_text: dream.trim(),
+          created_at: new Date().toISOString(),
+          sleepPeriod,
+          dreamType,
+          emotionRating,
+          guidedData: (guidedCharacters || guidedScene || guidedEmotion || guidedObjects || guidedPlot) ? {
+            characters: guidedCharacters,
+            scene: guidedScene,
+            emotion: guidedEmotion,
+            keyObjects: guidedObjects,
+            plot: guidedPlot,
+          } : undefined,
+          report_json: {
+            title: data.cleaned_dream ? (data.cleaned_dream.slice(0, 16) + '…') : '深度解夢報告',
+            summary: data.analysis_text ? (data.analysis_text.slice(0, 120) + '…') : '',
+            symbols: data.symbols_found?.map((s: string) => ({ symbol: s, meaning: '核心心理象徵' })) || [],
+            perspectives: [
+              { name: '榮格原型分析', text: data.analysis_text ? data.analysis_text.slice(0, 200) + '…' : '' },
+            ],
+            questions: ['這場夢境帶給你的核心直覺是什麼？'],
+            sources: [],
+          },
+        };
+
+        setHistory((prev) => [newEntry, ...prev]);
+        if (onDreamAdded) onDreamAdded(newEntry);
       }
 
       // Auto scroll to SOP card
@@ -437,14 +578,24 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
 
       if (!isPaid && history.length >= maxQuota) {
         setErrorNotice(
-          `⚠️ 儲存提醒：你目前為一般會員，已達到夢境儲存上限（${history.length} / ${maxQuota} 條）。已為你完成深度解讀，但未能存入日記。請前往日記刪除舊記錄、或在「方案與星星幣」用星星幣兌換儲存配額（最多 10 條），或升級付費版解鎖無限儲存！`
+          `⚠️ 儲存提醒：你目前為一般會員，已達到夢境儲存上限（${history.length} / ${maxQuota} 條）。已為你完成解讀，但未能存入日記。請前往日記刪除舊記錄，或升級付費版解鎖無限儲存！`
         );
       } else {
-        const newEntry: DreamEntry = data.entry || {
-          id: 'dream_' + Date.now(),
+        const newEntry: DreamEntry = {
+          id: data.entry?.id || 'dream_' + Date.now(),
           title: data.report.title,
           dream_text: dream.trim(),
           created_at: new Date().toISOString(),
+          sleepPeriod,
+          dreamType,
+          emotionRating,
+          guidedData: (guidedCharacters || guidedScene || guidedEmotion || guidedObjects || guidedPlot) ? {
+            characters: guidedCharacters,
+            scene: guidedScene,
+            emotion: guidedEmotion,
+            keyObjects: guidedObjects,
+            plot: guidedPlot,
+          } : undefined,
           report_json: data.report,
         };
 
@@ -583,7 +734,7 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                 ? 'bg-[#aa9cff] text-white shadow-md shadow-[#aa9cff]/20'
                 : 'bg-white/5 border border-white/10 text-[#aab3d2] hover:bg-white/10 hover:text-white'
             }`}
-            title="DREAM DNA™️｜你的夢境指紋：統計重複遇過嘅場景、物件同情緒"
+            title="DREAM DNA™️｜你的夢境指紋 👉簡單講：系統統計你反覆夢見嘅畫面同情緒，睇潛意識最常關心嘅議題。"
           >
             <Dna className="w-3.5 h-3.5" />
             <span>DREAM DNA™️ (夢境指紋)</span>
@@ -597,7 +748,7 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                 ? 'bg-[#aa9cff] text-white shadow-md shadow-[#aa9cff]/20'
                 : 'bg-white/5 border border-white/10 text-[#aab3d2] hover:bg-white/10 hover:text-white'
             }`}
-            title="星圖 CONSTELLATION™️｜夢境連線：將唔同夢境嘅人、地、情緒連成星圖"
+            title="星圖 CONSTELLATION™️｜夢境連線 👉簡單講：將唔同夢境嘅人、地方、情緒連成星座網絡，睇清夢境之間嘅神秘關聯。"
           >
             <Compass className="w-3.5 h-3.5" />
             <span>星圖連線</span>
@@ -611,7 +762,7 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                 ? 'bg-[#aa9cff] text-white shadow-md shadow-[#aa9cff]/20'
                 : 'bg-white/5 border border-white/10 text-[#aab3d2] hover:bg-white/10 hover:text-white'
             }`}
-            title="30 NIGHTS MYSTERY™️｜30晚潛意識檔案：每晚解鎖線索碎片"
+            title="30 NIGHTS MYSTERY™️｜30晚潛意識檔案 👉簡單講：連續記錄 30 晚夢境，好似偵探破案咁，逐晚解鎖潛意識畀你嘅線索拼圖。"
           >
             <Key className="w-3.5 h-3.5" />
             <span>30 NIGHTS™️ (30晚檔案)</span>
@@ -747,15 +898,66 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
             </div>
           )}
 
-          {/* Main Dream Input Card (Clean, Simple Layout) */}
+          {/* Main Dream Input Card (Clean, Simple Layout with Dual Mode) */}
           <section className="card p-6 sm:p-7 rounded-3xl bg-[#0e1122]/90 border border-white/10" id="dream-input-section">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2 text-xs font-semibold text-[#aa9cff] uppercase tracking-wider">
-                <Sparkles className="w-3.5 h-3.5 text-[#aa9cff]" />
-                <span>記錄夢境</span>
+            <div className="flex flex-wrap items-center justify-between gap-3 mb-3">
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 text-xs font-semibold text-[#aa9cff] uppercase tracking-wider">
+                  <Sparkles className="w-3.5 h-3.5 text-[#aa9cff]" />
+                  <span>記錄夢境</span>
+                </div>
+
+                {/* Quota status visualization beside title */}
+                {currentUser && (
+                  <div className="flex items-center gap-2 px-2.5 py-1 rounded-full bg-white/[0.04] border border-white/10 text-xs">
+                    {normalizeRole(currentUser.role) === 'paid' || normalizeRole(currentUser.role) === 'admin' || normalizeRole(currentUser.role) === 'super_admin' ? (
+                      <span className="text-[#78e1b5] flex items-center gap-1 font-semibold text-[11px]">
+                        <Crown className="w-3 h-3" />
+                        <span>VIP 無限存檔</span>
+                      </span>
+                    ) : (
+                      <div className="flex items-center gap-2 text-[11px]">
+                        <span className="text-amber-300 font-mono font-bold">
+                          已儲存 {Math.min(currentUser.storage_quota || 3, history.length)} / {currentUser.storage_quota || 3} 條夢境
+                        </span>
+                        <span className="text-[#8d97b5] hidden sm:inline">
+                          (剩餘 {Math.max(0, (currentUser.storage_quota || 3) - history.length)} 條)
+                        </span>
+                        <div className="w-14 h-1.5 rounded-full bg-white/10 overflow-hidden">
+                          <div
+                            className="h-full bg-amber-400 rounded-full transition-all"
+                            style={{ width: `${Math.min(100, (history.length / (currentUser.storage_quota || 3)) * 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center gap-2">
+                {/* Sample Preview button */}
+                <button
+                  type="button"
+                  onClick={() => setIsSamplePreviewOpen(true)}
+                  className="text-xs px-2.5 py-1 rounded-lg bg-[#71d9ff]/15 hover:bg-[#71d9ff]/25 text-[#71d9ff] hover:text-white border border-[#71d9ff]/30 flex items-center gap-1 transition-all cursor-pointer font-medium"
+                  title="查看示範報告樣品（DREAM DNA、星圖、30晚全息報告）"
+                >
+                  <Eye className="w-3 h-3" />
+                  <span>示範樣品預覽</span>
+                </button>
+
+                {/* Nightmare Care Button */}
+                <button
+                  type="button"
+                  onClick={() => setIsNightmareCareOpen(true)}
+                  className="text-xs px-2.5 py-1 rounded-lg bg-[#ff8b9d]/15 hover:bg-[#ff8b9d]/25 text-[#ffb0bd] hover:text-white border border-[#ff8b9d]/30 flex items-center gap-1 transition-all cursor-pointer font-medium"
+                  title="開啟噩夢自助梳理小工具與 IRT 改寫練習"
+                >
+                  <Heart className="w-3 h-3 text-[#ff8b9d]" />
+                  <span>噩夢關懷</span>
+                </button>
+
                 {(quickReport || activeReport || masterAnalysis || dream.trim().length > 0) && (
                   <button
                     type="button"
@@ -765,82 +967,261 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                     id="workspace-reset-dream-btn"
                   >
                     <RotateCcw className="w-3 h-3 text-[#aa9cff]" />
-                    <span>清空重寫 / 記錄新夢</span>
+                    <span>清空重寫</span>
                   </button>
                 )}
               </div>
             </div>
 
-            {/* 記夢引導（醒來記憶喚醒提示，置頂重要位置優先引導造夢者回憶） */}
-            <div className="p-3 sm:p-3.5 rounded-2xl bg-[#aa9cff]/10 border border-[#aa9cff]/20 flex flex-wrap items-center justify-between gap-2 text-xs mb-3" id="workspace-dream-guide">
-              <div className="flex items-center gap-1.5 font-semibold text-[#c3b9ff]">
-                <Sparkles className="w-3.5 h-3.5 text-[#aa9cff]" />
-                <span>記夢引導（點擊帶入回憶結構）：</span>
-              </div>
-              <div className="flex flex-wrap items-center gap-1.5">
-                {[
-                  { label: '👥 有邊啲人物？', prompt: '【夢中人物】：' },
-                  { label: '📍 場景係邊度？', prompt: '【場景地點】：' },
-                  { label: '💭 感覺驚／開心／不安？', prompt: '【當時心情感覺】：' },
-                  { label: '🚪 有冇特定物件？', prompt: '【重要物件】：' },
-                ].map((guide, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => {
-                      setDream((prev) => {
-                        const trimmed = prev.trim();
-                        return trimmed ? `${trimmed}\n${guide.prompt}` : guide.prompt;
-                      });
-                    }}
-                    className="text-xs px-2.5 py-1 rounded-lg bg-white/10 hover:bg-[#aa9cff]/25 text-[#cbd2ef] hover:text-white border border-white/15 hover:border-[#aa9cff]/40 transition-all cursor-pointer font-medium active:scale-95"
-                    title={`點擊加入「${guide.prompt}」引導`}
-                  >
-                    {guide.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+            {/* DUAL MODE SWITCH TABS: 模式 A (自由書寫) vs 模式 B (分步引導表單) */}
+            <div className="flex flex-wrap items-center justify-between gap-2 p-1.5 rounded-2xl bg-white/[0.03] border border-white/10 mb-3 text-xs">
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setInputMode('free')}
+                  className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    inputMode === 'free'
+                      ? 'bg-[#aa9cff] text-black shadow-md shadow-[#aa9cff]/20'
+                      : 'text-[#cbd2ef] hover:text-white hover:bg-white/5'
+                  }`}
+                  id="tab-mode-free"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>模式 A：自由書寫</span>
+                </button>
 
-            <div className="relative">
-              <textarea
-                value={dream}
-                onChange={(e) => setDream(e.target.value)}
-                placeholder="寫低你記得嘅夢境……醒來時看見甚麼？心情如何？（可點擊上方「記夢引導」快速帶入提示，或直接自由書寫）"
-                rows={4}
-                className="w-full text-base sm:text-sm leading-relaxed min-h-[140px] p-3.5 sm:p-4 rounded-2xl bg-[#090b16] border border-white/20 focus:border-[#aa9cff] focus:ring-2 focus:ring-[#aa9cff]/20 text-white placeholder-[#727c9e] outline-none transition-all shadow-inner"
-                id="workspace-dream-textarea"
-              />
-
-              {/* Realtime Character Count & Minimum Guidance */}
-              <div className="flex items-center justify-between text-[11px] mt-1 px-1">
-                <div>
-                  {dream.trim().length > 0 && dream.trim().length < 15 ? (
-                    <span className="text-amber-400 flex items-center gap-1 font-medium">
-                      <AlertCircle className="w-3 h-3" />
-                      目前 {dream.trim().length} 字（少於 15 字）：建議補充情緒、場景或關鍵細節以利深入解讀
-                    </span>
-                  ) : dream.trim().length >= 15 ? (
-                    <span className="text-[#78e1b5] flex items-center gap-1 font-medium">
-                      <CheckCircle2 className="w-3 h-3" />
-                      已達 {dream.trim().length} 字，內容完整度良好
-                    </span>
-                  ) : (
-                    <span className="text-[#8d97b5]">建議完整描述夢中場景與情緒感受</span>
-                  )}
-                </div>
-                <div className="text-[#8d97b5] font-mono">
-                  {dream.trim().length} 字
-                </div>
+                <button
+                  type="button"
+                  onClick={() => setInputMode('guided')}
+                  className={`px-3 py-1.5 rounded-xl font-bold flex items-center gap-1.5 transition-all cursor-pointer ${
+                    inputMode === 'guided'
+                      ? 'bg-amber-400 text-black shadow-md shadow-amber-400/20'
+                      : 'text-[#cbd2ef] hover:text-white hover:bg-white/5'
+                  }`}
+                  id="tab-mode-guided"
+                >
+                  <ListFilter className="w-3.5 h-3.5" />
+                  <span>模式 B：記夢引導（分步表單 · 零散片段專用）</span>
+                </button>
               </div>
-            </div>
 
-            {/* Quick Word Adder Chips (次要輔助：補充意象詞) */}
-            <div className="flex flex-wrap items-center gap-1.5 mt-2.5 pt-2.5 border-t border-white/5">
-              <span className="text-[11px] text-[#8d97b5] font-medium flex items-center gap-1">
-                <Plus className="w-3 h-3" />
-                補充意象詞：
+              <span className="text-[11px] text-[#8d97b5] hidden md:inline">
+                {inputMode === 'free' ? '適合醒來思緒清晰、一氣呵成記錄' : '每欄可留空，睡醒迷迷糊糊隨手記片段'}
               </span>
+            </div>
+
+            {/* 明確產品邊界聲明 */}
+            <div className="mb-3 px-3.5 py-2 rounded-xl bg-amber-400/10 border border-amber-400/25 flex flex-wrap items-center justify-between gap-2 text-xs">
+              <span className="text-amber-300 flex items-center gap-1.5 font-medium">
+                <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                <span>產品邊界提醒：本平台只做基於心理學的自我反思工具，不做吉凶預測；本平台不是心理治療、不是精神科服務。</span>
+              </span>
+              <span className="text-[11px] text-[#8e98b7]">自我覺察日記 · 非醫療診斷</span>
+            </div>
+
+            {/* MODE A: 自由書寫大文本 */}
+            {inputMode === 'free' && (
+              <div className="space-y-3 animate-fade-in">
+                {/* 記夢喚醒提示引導 */}
+                <div className="p-2.5 sm:p-3 rounded-2xl bg-[#aa9cff]/10 border border-[#aa9cff]/20 flex flex-wrap items-center justify-between gap-2 text-xs" id="workspace-dream-guide">
+                  <div className="flex items-center gap-1.5 font-semibold text-[#c3b9ff]">
+                    <Sparkles className="w-3.5 h-3.5 text-[#aa9cff]" />
+                    <span>快速帶入結構標籤：</span>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    {[
+                      { label: '👥 夢中人物', prompt: '【夢中人物】：' },
+                      { label: '📍 場景地點', prompt: '【場景地點】：' },
+                      { label: '💭 當時心情', prompt: '【當時心情感覺】：' },
+                      { label: '🚪 關鍵物件', prompt: '【重要物件】：' },
+                    ].map((guide, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setDream((prev) => {
+                            const trimmed = prev.trim();
+                            return trimmed ? `${trimmed}\n${guide.prompt}` : guide.prompt;
+                          });
+                        }}
+                        className="text-xs px-2.5 py-0.5 rounded-lg bg-white/10 hover:bg-[#aa9cff]/25 text-[#cbd2ef] hover:text-white border border-white/15 hover:border-[#aa9cff]/40 transition-all cursor-pointer font-medium active:scale-95"
+                        title={`點擊加入「${guide.prompt}」引導`}
+                      >
+                        {guide.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 信任提示：加強安全感 */}
+                <div className="flex items-center justify-between text-xs px-1 text-[#78e1b5]">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <span>💡你嘅夢境內容屬私人資料，不會用作 AI 訓練</span>
+                  </span>
+                  <span className="text-[11px] text-[#8d97b5] hidden sm:inline">
+                    🔒 嚴格用戶隔離 · 絕不分享第三方
+                  </span>
+                </div>
+
+                <div className="relative">
+                  <textarea
+                    ref={dreamTextareaRef}
+                    value={dream}
+                    onChange={handleDreamTextareaChange}
+                    placeholder="寫低你記得嘅夢境……醒來時看見甚麼？心情如何？（可點擊上方標籤快速帶入提示，或直接自由書寫）"
+                    rows={4}
+                    className="w-full text-base sm:text-sm leading-relaxed min-h-[140px] p-3.5 sm:p-4 rounded-2xl bg-[#090b16] border border-white/20 focus:border-[#aa9cff] focus:ring-2 focus:ring-[#aa9cff]/20 text-white placeholder-[#727c9e] outline-none transition-all shadow-inner resize-y"
+                    id="workspace-dream-textarea"
+                  />
+
+                  {/* Realtime Character Count & Minimum Guidance */}
+                  <div className="flex items-center justify-between text-[11px] mt-1 px-1">
+                    <div>
+                      {dream.trim().length > 0 && dream.trim().length < 15 ? (
+                        <span className="text-amber-400 flex items-center gap-1 font-medium">
+                          <AlertCircle className="w-3 h-3" />
+                          目前 {dream.trim().length} 字（少於 15 字）：建議補充情緒、場景或關鍵細節以利深入解讀
+                        </span>
+                      ) : dream.trim().length >= 15 ? (
+                        <span className="text-[#78e1b5] flex items-center gap-1 font-medium">
+                          <CheckCircle2 className="w-3 h-3" />
+                          已達 {dream.trim().length} 字，內容完整度良好
+                        </span>
+                      ) : (
+                        <span className="text-[#8d97b5]">建議完整描述夢中場景與情緒感受（可隨時切換至「模式 B：記夢引導」輕鬆填寫）</span>
+                      )}
+                    </div>
+                    <div className="text-[#8d97b5] font-mono">
+                      {dream.trim().length} 字
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* MODE B: 記夢引導分步簡易表單 (每欄可留空，降 15 字門檻) */}
+            {inputMode === 'guided' && (
+              <div className="p-4 sm:p-5 rounded-2xl bg-[#111428] border border-amber-400/30 space-y-4 animate-fade-in">
+                {/* 信任提示：加強安全感 */}
+                <div className="flex items-center justify-between text-xs px-1 text-[#78e1b5] pb-2 border-b border-white/5">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <span>💡你嘅夢境內容屬私人資料，不會用作 AI 訓練</span>
+                  </span>
+                  <span className="text-[11px] text-[#8d97b5] hidden sm:inline">
+                    🔒 嚴格用戶隔離 · 絕不分享第三方
+                  </span>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
+                  <div className="flex items-center gap-1.5 text-amber-300 font-bold">
+                    <ListFilter className="w-4 h-4" />
+                    <span>分步簡易表單：零碎片段速記</span>
+                  </div>
+                  <span className="text-[#8d97b5] text-[11px]">
+                    ✨ 每欄均可留空，醒來迷迷糊糊填幾個詞也能智能組合！
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                  {/* Field 1: 人物 */}
+                  <div className="space-y-1">
+                    <label className="text-[#cbd2ef] font-semibold flex items-center gap-1">
+                      <span>👥 人物</span>
+                      <span className="text-[10px] text-[#8d97b5] font-normal">(可留空)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={guidedCharacters}
+                      onChange={(e) => setGuidedCharacters(e.target.value)}
+                      placeholder="例：媽媽、舊同事、陌生黑衣人、寵物"
+                      className="w-full p-2.5 rounded-xl bg-white/[0.04] border border-white/15 focus:border-amber-400 text-white placeholder-[#687295] outline-none"
+                    />
+                  </div>
+
+                  {/* Field 2: 場景 */}
+                  <div className="space-y-1">
+                    <label className="text-[#cbd2ef] font-semibold flex items-center gap-1">
+                      <span>📍 場景</span>
+                      <span className="text-[10px] text-[#8d97b5] font-normal">(可留空)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={guidedScene}
+                      onChange={(e) => setGuidedScene(e.target.value)}
+                      placeholder="例：老家客廳、高空吊橋、深海沙灘、舊學校"
+                      className="w-full p-2.5 rounded-xl bg-white/[0.04] border border-white/15 focus:border-amber-400 text-white placeholder-[#687295] outline-none"
+                    />
+                  </div>
+
+                  {/* Field 3: 主要情緒 */}
+                  <div className="space-y-1">
+                    <label className="text-[#cbd2ef] font-semibold flex items-center gap-1">
+                      <span>💭 主要情緒</span>
+                      <span className="text-[10px] text-[#8d97b5] font-normal">(可留空)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={guidedEmotion}
+                      onChange={(e) => setGuidedEmotion(e.target.value)}
+                      placeholder="例：焦慮不知所措、平靜超脫、窒息恐懼、興奮"
+                      className="w-full p-2.5 rounded-xl bg-white/[0.04] border border-white/15 focus:border-amber-400 text-white placeholder-[#687295] outline-none"
+                    />
+                  </div>
+
+                  {/* Field 4: 關鍵物件 */}
+                  <div className="space-y-1">
+                    <label className="text-[#cbd2ef] font-semibold flex items-center gap-1">
+                      <span>🚪 關鍵物件</span>
+                      <span className="text-[10px] text-[#8d97b5] font-normal">(可留空)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={guidedObjects}
+                      onChange={(e) => setGuidedObjects(e.target.value)}
+                      placeholder="例：斷掉的鑰匙、鏡子、時鐘、發光的羽毛"
+                      className="w-full p-2.5 rounded-xl bg-white/[0.04] border border-white/15 focus:border-amber-400 text-white placeholder-[#687295] outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Field 5: 簡短劇情 */}
+                <div className="space-y-1 text-xs">
+                  <label className="text-[#cbd2ef] font-semibold flex items-center gap-1">
+                    <span>📖 簡短劇情</span>
+                    <span className="text-[10px] text-[#8d97b5] font-normal">(可留空，一句話也可)</span>
+                  </label>
+                  <textarea
+                    value={guidedPlot}
+                    onChange={(e) => setGuidedPlot(e.target.value)}
+                    placeholder="例：我一直在走廊找出口，後來天空突然下大雨，我轉身跳進了水池裡……"
+                    rows={2}
+                    className="w-full p-2.5 rounded-xl bg-white/[0.04] border border-white/15 focus:border-amber-400 text-white placeholder-[#687295] outline-none leading-relaxed"
+                  />
+                </div>
+
+                {/* Synthesis Action Button */}
+                <div className="pt-1 flex flex-col sm:flex-row items-center justify-between gap-3 border-t border-white/10">
+                  <span className="text-[11px] text-[#8d97b5]">
+                    點擊按鈕，系統將自動將上述零碎欄位串成連貫的夢境筆記！
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleGenerateFromGuided}
+                    className="w-full sm:w-auto px-4 py-2 rounded-xl bg-gradient-to-r from-amber-400 to-amber-500 hover:from-amber-300 hover:to-amber-400 text-black font-extrabold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-md transition-all active:scale-95"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 fill-black" />
+                    <span>智能串成夢境筆記並檢視 →</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Quick Word Adder Chips (意象標籤交互明確化：點擊插入 + hover 出現小提示) */}
+            <div className="flex flex-wrap items-center gap-1.5 mt-2.5 pt-2.5 border-t border-white/5">
+              <div className="flex items-center gap-1 text-[11px] text-[#aa9cff] font-medium mr-1" title="點擊將意象加入你的夢境筆記">
+                <Plus className="w-3 h-3" />
+                <span>意象庫（點擊插入）：</span>
+              </div>
               {[
                 { label: '🌊 海洋水流', text: '海洋、大水淹沒' },
                 { label: '👣 赤腳無鞋', text: '赤腳、沒穿鞋子' },
@@ -859,17 +1240,136 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                   key={idx}
                   type="button"
                   onClick={() => {
-                    setDream((prev) => {
-                      const trimmed = prev.trim();
-                      return trimmed ? `${trimmed}，夢中有${item.text}` : `昨晚夢見${item.text}`;
-                    });
+                    if (inputMode === 'guided') {
+                      setGuidedObjects((prev) => (prev ? `${prev}、${item.text}` : item.text));
+                    } else {
+                      setDream((prev) => {
+                        const trimmed = prev.trim();
+                        return trimmed ? `${trimmed}，夢中有${item.text}` : `昨晚夢見${item.text}`;
+                      });
+                    }
                   }}
-                  className="text-[11px] px-2 py-0.5 rounded-md bg-[#aa9cff]/10 border border-[#aa9cff]/20 text-[#cbd2ef] hover:bg-[#aa9cff]/25 hover:text-white transition-colors cursor-pointer"
-                  title={`點擊加入「${item.label}」`}
+                  className="group relative text-[11px] px-2 py-0.5 rounded-md bg-[#aa9cff]/10 border border-[#aa9cff]/20 text-[#cbd2ef] hover:bg-[#aa9cff]/25 hover:text-white transition-colors cursor-pointer"
+                  title="點擊將意象加入你的夢境筆記"
                 >
-                  +{item.label}
+                  <span>+{item.label}</span>
                 </button>
               ))}
+            </div>
+
+            {/* DREAM METADATA EXTENSION (夢境元數據擴充：時間、時段、分類標籤、情緒評分) */}
+            <div className="mt-3.5 pt-3 border-t border-white/10 space-y-3 text-xs bg-white/[0.02] p-3.5 rounded-2xl">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="font-bold text-white flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-[#71d9ff]" />
+                  <span>夢境元數據紀錄 (可選填)</span>
+                </span>
+                <span className="text-[11px] font-mono text-[#8d97b5]">
+                  🕒 自動記錄時間：{recordTime}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* 1. 睡眠時段 */}
+                <div>
+                  <label className="text-[11px] text-[#8d97b5] block mb-1">睡眠時段</label>
+                  <div className="flex gap-1.5">
+                    {[
+                      { id: 'early_night', label: '🌙 入睡前期' },
+                      { id: 'midnight', label: '🌌 深夜深眠' },
+                      { id: 'dawn_waking', label: '🌅 清晨醒前' },
+                    ].map((p) => (
+                      <button
+                        key={p.id}
+                        type="button"
+                        onClick={() => setSleepPeriod(p.id as any)}
+                        className={`flex-1 py-1 px-1.5 rounded-lg border text-[10px] font-medium transition-all cursor-pointer ${
+                          sleepPeriod === p.id
+                            ? 'bg-[#71d9ff]/20 border-[#71d9ff] text-white font-bold'
+                            : 'bg-white/[0.03] border-white/10 text-[#aab3d2] hover:bg-white/5'
+                        }`}
+                      >
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 2. 夢境分類標籤 */}
+                <div>
+                  <label className="text-[11px] text-[#8d97b5] block mb-1">夢境分類標籤</label>
+                  <div className="flex gap-1">
+                    {[
+                      { id: 'normal', label: '☁️ 普通夢' },
+                      { id: 'nightmare', label: '😱 噩夢' },
+                      { id: 'lucid', label: '🔮 清醒夢' },
+                      { id: 'recurring', label: '🔄 重複夢' },
+                    ].map((t) => (
+                      <button
+                        key={t.id}
+                        type="button"
+                        onClick={() => {
+                          setDreamType(t.id as any);
+                          if (t.id === 'nightmare') {
+                            setIsNightmareCareOpen(true);
+                          }
+                        }}
+                        className={`flex-1 py-1 px-1 rounded-lg border text-[10px] font-medium transition-all cursor-pointer ${
+                          dreamType === t.id
+                            ? t.id === 'nightmare'
+                              ? 'bg-[#ff8b9d]/25 border-[#ff8b9d] text-white font-bold'
+                              : 'bg-[#aa9cff]/25 border-[#aa9cff] text-white font-bold'
+                            : 'bg-white/[0.03] border-white/10 text-[#aab3d2] hover:bg-white/5'
+                        }`}
+                      >
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 3. 1-5 分情緒評分 */}
+                <div>
+                  <label className="text-[11px] text-[#8d97b5] block mb-1">
+                    醒來情緒波動（1 平和 ~ 5 強烈）
+                  </label>
+                  <div className="flex items-center gap-1.5">
+                    {[1, 2, 3, 4, 5].map((score) => (
+                      <button
+                        key={score}
+                        type="button"
+                        onClick={() => setEmotionRating(score)}
+                        className={`flex-1 py-1 rounded-lg border text-center text-xs font-mono font-bold transition-all cursor-pointer ${
+                          emotionRating === score
+                            ? score >= 4
+                              ? 'bg-[#ff8b9d] text-black border-[#ff8b9d]'
+                              : 'bg-amber-400 text-black border-amber-400'
+                            : 'bg-white/[0.03] border-white/10 text-[#aab3d2] hover:bg-white/5'
+                        }`}
+                      >
+                        {score}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Nightmare Quick Notice Banner if marked as nightmare */}
+              {dreamType === 'nightmare' && (
+                <div className="p-2.5 rounded-xl bg-[#ff8b9d]/15 border border-[#ff8b9d]/30 flex items-center justify-between gap-2 text-[11px] text-[#fed2d9]">
+                  <div className="flex items-center gap-2">
+                    <Heart className="w-3.5 h-3.5 text-[#ff8b9d] shrink-0" />
+                    <span>覺察到這是一場噩夢。建議使用【噩夢關懷與自救】進行 5-4-3-2-1 著陸與結局改寫。</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsNightmareCareOpen(true)}
+                    className="px-2 py-0.5 rounded-md bg-[#ff8b9d] text-black font-bold text-[10px] shrink-0 cursor-pointer"
+                  >
+                    開啟梳理 →
+                  </button>
+                </div>
+              )}
             </div>
 
             {/* Optional User Context Drawer (可選補充資訊：性別、近況、是否為重複夢) */}
@@ -969,6 +1469,18 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
               </div>
 
               <div className="flex flex-wrap items-center gap-2 shrink-0">
+                {/* Secondary lightweight CTA: 先看樣本再決定寫夢，降低行動門檻 */}
+                <button
+                  type="button"
+                  onClick={() => setIsSamplePreviewOpen(true)}
+                  className="btn2 text-xs px-3.5 py-2 flex items-center gap-1.5 cursor-pointer text-[#c3b9ff] hover:text-white hover:border-[#aa9cff]/40 transition-all"
+                  title="先看樣本再決定寫夢，降低心理門檻"
+                  id="workspace-sample-preview-btn"
+                >
+                  <Eye className="w-3.5 h-3.5 text-[#71d9ff]" />
+                  <span>【觀看示範報告】</span>
+                </button>
+
                 <button
                   type="button"
                   className="btn2 text-xs px-3.5 py-2 flex items-center gap-1.5 cursor-pointer"
@@ -1023,7 +1535,7 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                       <span>
                         {(paidPreliminary || quickReport)
                           ? '升級 Dream Master 深度解夢（+3 星 ⭐）'
-                          : 'Dream Master 深度解夢'}
+                          : '記錄夢境開始分析 (Dream Master)'}
                       </span>
                       {normalizeRole(currentUser?.role || 'free') === 'free' ? (
                         <span className="text-[10px] px-1.5 py-0.5 rounded bg-black/35 text-amber-300 font-extrabold font-mono">
@@ -1076,6 +1588,22 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                       已複製！可貼入 Word
                     </span>
                   )}
+                  <button
+                    type="button"
+                    onClick={() => handleOpenShare({
+                      title: 'Dream Master 典籍深度心理剖析',
+                      dreamText: dream,
+                      summary: masterAnalysis.analysis_text.slice(0, 240) + '……',
+                      archetype: '榮格原型與集體潛意識',
+                      noteworthyMessage: '從榮格心理學與周公典籍視角，梳理你的潛意識模式與核心情緒。',
+                    })}
+                    className="btn2 text-xs px-2.5 py-1.5 flex items-center gap-1 cursor-pointer border-[#aa9cff]/40 text-[#c3b9ff] hover:bg-[#aa9cff]/15 shadow-sm"
+                    title="分享打碼隱去個人內容的洞察報告（社交傳播）"
+                    id="master-share-btn"
+                  >
+                    <Share2 className="w-3.5 h-3.5 text-[#aa9cff]" />
+                    <span>分享打碼洞察</span>
+                  </button>
                   <button
                     type="button"
                     onClick={handleCopyMasterText}
@@ -1211,6 +1739,52 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                   </button>
                 </div>
               </div>
+
+              {/* SOFT RECOMMENDATION (USER MANDATED): 解鎖 DREAM DNA */}
+              {(!currentUser || normalizeRole(currentUser.role) === 'free') && (
+                <div className="mt-5 p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#aa9cff]/20 via-[#13162c] to-[#71d9ff]/20 border-2 border-[#aa9cff]/50 shadow-xl space-y-3">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#aa9cff] to-[#71d9ff] text-black font-bold flex items-center justify-center text-lg shrink-0 shadow-md">
+                      🧬
+                    </div>
+                    <div>
+                      <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#aa9cff]/20 text-[#c3b9ff] text-[10px] font-semibold mb-1 border border-[#aa9cff]/30">
+                        <Sparkles className="w-3 h-3 text-[#aa9cff]" />
+                        <span>進階心靈模式解鎖</span>
+                      </div>
+                      <h4 className="text-sm sm:text-base font-serif font-bold text-white leading-snug">
+                        呢個只係基礎解讀，解鎖 DREAM DNA 可以睇你長期重複嘅夢境模式
+                      </h4>
+                      <p className="text-xs text-[#cbd2ef] mt-1 leading-relaxed">
+                        單個夢境只能看見即時心緒。DREAM DNA™️ 會自動統計你跨越多晚反覆夢見嘅人物、場景、關鍵物件同情緒，揭開潛意識深層嘅心靈指紋與人生轉折！
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 flex flex-wrap items-center gap-3 border-t border-white/10">
+                    <button
+                      type="button"
+                      onClick={onOpenEarnStars}
+                      className="btn2 text-xs px-4 py-2.5 flex items-center gap-2 cursor-pointer border-amber-400/60 bg-amber-400/15 text-amber-300 hover:bg-amber-400/25 font-bold transition-all shadow-md shadow-amber-400/10"
+                      id="master-rec-earn-stars-btn"
+                    >
+                      <Tv className="w-4 h-4 text-amber-300" />
+                      <span>睇廣告賺星星幣解鎖</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={onGoToPricing}
+                      className="btn text-xs px-5 py-2.5 flex items-center gap-2 cursor-pointer bg-gradient-to-r from-[#aa9cff] to-[#71d9ff] text-[#0a0d1d] font-bold shadow-lg shadow-[#aa9cff]/20 hover:brightness-110 transition-all"
+                      id="master-rec-upgrade-pricing-btn"
+                    >
+                      <Crown className="w-4 h-4" />
+                      <span>直接升級付費</span>
+                      <ArrowRight className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                </div>
+              )}
             </section>
           )}
 
@@ -1220,7 +1794,7 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
               className="card p-6 rounded-3xl bg-gradient-to-b from-[#11162b] to-[#090c1a] border border-[#71d9ff]/30 shadow-xl space-y-4"
               id="quick-analysis-card"
             >
-              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex flex-wrap items-center justify-between border-b border-white/10 pb-3 gap-2">
                 <div className="flex items-center gap-2">
                   <span className="text-xs px-2 py-0.5 rounded-full bg-[#71d9ff]/20 text-[#71d9ff] font-mono border border-[#71d9ff]/30">
                     初步基本分析
@@ -1229,7 +1803,25 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                     {quickReport.title}
                   </h3>
                 </div>
-                <span className="text-[11px] text-[#8d97b5]">免冗長文字 · 精簡意涵</span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenShare({
+                      title: quickReport.title,
+                      dreamText: dream,
+                      summary: quickReport.simpleSummary,
+                      symbols: [{ symbol: quickReport.primarySymbol.symbol, meaning: quickReport.primarySymbol.meaning }],
+                      noteworthyMessage: quickReport.noteworthyMessage,
+                      healingAdvice: quickReport.quickTakeaway,
+                    })}
+                    className="px-3 py-1.5 rounded-xl bg-gradient-to-r from-[#aa9cff]/20 to-[#71d9ff]/20 border border-[#aa9cff]/40 text-white hover:brightness-110 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all shadow-sm"
+                    id="quick-report-share-btn"
+                  >
+                    <Share2 className="w-3.5 h-3.5 text-[#71d9ff]" />
+                    <span>分享打碼洞察</span>
+                  </button>
+                  <span className="text-[11px] text-[#8d97b5] hidden sm:inline">即時單次解析</span>
+                </div>
               </div>
 
               {/* Core Symbol & Simple Summary */}
@@ -1321,6 +1913,52 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                 </div>
               </div>
 
+              {/* SOFT RECOMMENDATION (USER MANDATED): 呢個只係基礎解讀，解鎖 DREAM DNA 可以睇你長期重複嘅夢境模式 */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-[#aa9cff]/20 via-[#13162c] to-[#71d9ff]/20 border-2 border-[#aa9cff]/50 shadow-xl space-y-3">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#aa9cff] to-[#71d9ff] text-black font-bold flex items-center justify-center text-lg shrink-0 shadow-md">
+                    🧬
+                  </div>
+                  <div>
+                    <div className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[#aa9cff]/20 text-[#c3b9ff] text-[10px] font-semibold mb-1 border border-[#aa9cff]/30">
+                      <Sparkles className="w-3 h-3 text-[#aa9cff]" />
+                      <span>進階心靈模式解鎖</span>
+                    </div>
+                    <h4 className="text-sm sm:text-base font-serif font-bold text-white leading-snug">
+                      呢個只係基礎解讀，解鎖 DREAM DNA 可以睇你長期重複嘅夢境模式
+                    </h4>
+                    <p className="text-xs text-[#cbd2ef] mt-1 leading-relaxed">
+                      單個夢境只能看見即時心緒。DREAM DNA™️ 會自動統計你跨越多晚反覆夢見嘅人物、場景、關鍵物件同情緒，揭開潛意識深層嘅心靈指紋與人生轉折！
+                    </p>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex flex-wrap items-center gap-3 border-t border-white/10">
+                  {/* Option 1: 睇廣告賺星星幣解鎖 */}
+                  <button
+                    type="button"
+                    onClick={onOpenEarnStars}
+                    className="btn2 text-xs px-4 py-2.5 flex items-center gap-2 cursor-pointer border-amber-400/60 bg-amber-400/15 text-amber-300 hover:bg-amber-400/25 font-bold transition-all shadow-md shadow-amber-400/10"
+                    id="quick-rec-earn-stars-btn"
+                  >
+                    <Tv className="w-4 h-4 text-amber-300" />
+                    <span>睇廣告賺星星幣解鎖</span>
+                  </button>
+
+                  {/* Option 2: 直接升級付費 */}
+                  <button
+                    type="button"
+                    onClick={onGoToPricing}
+                    className="btn text-xs px-5 py-2.5 flex items-center gap-2 cursor-pointer bg-gradient-to-r from-[#aa9cff] to-[#71d9ff] text-[#0a0d1d] font-bold shadow-lg shadow-[#aa9cff]/20 hover:brightness-110 transition-all"
+                    id="quick-rec-upgrade-pricing-btn"
+                  >
+                    <Crown className="w-4 h-4" />
+                    <span>直接升級付費</span>
+                    <ArrowRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+
               {/* STEP 2 INVITATION: 升級 Dream Master 深度解夢 (折抵後只需加 3 顆星) */}
               <div className="mt-4 pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#aa9cff]/5 p-4 rounded-2xl border border-[#aa9cff]/20">
                 <div className="space-y-1">
@@ -1339,8 +1977,8 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
                   </div>
                   <p className="text-xs text-[#aab3d2] leading-relaxed">
                     {currentUser && normalizeRole(currentUser.role) === 'free'
-                      ? `完成初步分析後，主操作按鈕與下方自動切換為折抵升級。點擊後僅扣除差額 3 顆星（累計共 6 星，目前結餘：${currentUser.stars ?? 0} 顆），即刻啟動 400–800 字深度心理學與典籍交叉解析！`
-                      : '付費 VIP 會員維持全免扣星尊享特權：即刻啟動 400–800 字深度心理學與典籍交叉解析！'}
+                      ? `完成初步分析後，主操作按鈕與下方自動切換為折抵升級。點擊後僅扣除差額 3 顆星（累計共 6 星，目前結餘：${currentUser.stars ?? 0} 顆），即刻啟動深度心理學解析並將夢境永久存檔至日記！`
+                      : '付費 VIP 會員維持全免扣星尊享特權：即刻啟動深度心理學解析並享無限存檔！'}
                   </p>
                 </div>
 
@@ -1403,21 +2041,40 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
               className="card p-6 sm:p-7 rounded-3xl border border-[#aa9cff]/40 bg-gradient-to-b from-[#12162c] to-[#090c1b] space-y-5"
               id="deep-report-card"
             >
-              <div className="flex items-center justify-between border-b border-white/10 pb-3">
+              <div className="flex flex-wrap items-center justify-between border-b border-white/10 pb-3 gap-2">
                 <div className="flex items-center gap-2">
                   <span className="badge">AI 深度解讀報告</span>
                   <span className="text-xs text-[#78e1b5] font-mono">已載入 DREAM DNA™️</span>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (history[0]) setSelectedEntry(history[0]);
-                  }}
-                  className="btn2 text-xs flex items-center gap-1.5"
-                >
-                  <Eye className="w-3.5 h-3.5" />
-                  <span>全屏檢視</span>
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => handleOpenShare({
+                      title: activeReport.title,
+                      dreamText: dream,
+                      summary: activeReport.summary,
+                      symbols: activeReport.symbols,
+                      archetype: activeReport.fourLayers?.jungianLayer.title,
+                      healingAdvice: activeReport.fourLayers?.integrationAction.advice,
+                      question: activeReport.questions?.[0],
+                    })}
+                    className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#aa9cff]/20 to-[#71d9ff]/20 border border-[#aa9cff]/40 text-white hover:brightness-110 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-all shadow-sm"
+                    id="deep-report-share-btn"
+                  >
+                    <Share2 className="w-3.5 h-3.5 text-[#71d9ff]" />
+                    <span>分享打碼洞察</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (history[0]) setSelectedEntry(history[0]);
+                    }}
+                    className="btn2 text-xs flex items-center gap-1.5"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                    <span>全屏檢視</span>
+                  </button>
+                </div>
               </div>
 
               <div>
@@ -1740,6 +2397,47 @@ export const DreamWorkspace: React.FC<DreamWorkspaceProps> = ({
         therapists={therapists}
         prefilledDreamText={dream}
       />
+
+      {/* Sample Report Preview Modal (DREAM DNA, Constellation, 30 Nights) */}
+      <SampleReportPreviewModal
+        isOpen={isSamplePreviewOpen}
+        onClose={() => setIsSamplePreviewOpen(false)}
+        onGoToPricing={onGoToPricing}
+        onOpenEarnStars={onOpenEarnStars}
+      />
+
+      {/* Nightmare Care Kit & IRT Self-Help Modal */}
+      <NightmareCareModal
+        isOpen={isNightmareCareOpen}
+        onClose={() => setIsNightmareCareOpen(false)}
+        onOpenTherapists={() => {
+          setIsNightmareCareOpen(false);
+          setIsTherapeuticOpen(true);
+        }}
+        prefilledDream={dream}
+        onApplyRewriteToDream={(rewrittenStory) => {
+          setDream((prev) => {
+            const trimmed = prev.trim();
+            return trimmed ? `${trimmed}\n\n${rewrittenStory}` : rewrittenStory;
+          });
+        }}
+      />
+
+      {/* Anonymized Share Modal for Social Sharing */}
+      {shareModalData && (
+        <AnonymizedShareModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          reportTitle={shareModalData.title}
+          dreamText={shareModalData.dreamText}
+          summary={shareModalData.summary}
+          symbols={shareModalData.symbols}
+          archetype={shareModalData.archetype}
+          noteworthyMessage={shareModalData.noteworthyMessage}
+          healingAdvice={shareModalData.healingAdvice}
+          question={shareModalData.question}
+        />
+      )}
     </div>
   );
 };

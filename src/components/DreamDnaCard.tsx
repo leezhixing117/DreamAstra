@@ -71,6 +71,9 @@ export const DreamDnaCard: React.FC<DreamDnaCardProps> = ({ dna, onSelectSymbolF
             <h2 className="text-2xl sm:text-3xl font-serif font-bold text-white mt-1">
               你的個人夢境指紋
             </h2>
+            <p className="text-xs text-amber-300 font-medium mt-1">
+              👉簡單講：系統統計你反覆夢見嘅畫面同情緒，睇潛意識最常關心嘅議題。
+            </p>
           </div>
         </div>
 
